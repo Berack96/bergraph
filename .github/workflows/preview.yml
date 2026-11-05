@@ -1,0 +1,23 @@
+# Push to main: preview tag `vYYYY.MM-preview.NNN` and pre-release.
+name: Preview
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+
+permissions: {}
+
+jobs:
+  release:
+    name: Pre-release
+    permissions:
+      contents: write
+      pull-requests: read
+      actions: read
+    uses: Berack96/workflows/.github/workflows/release.yml@v1.0.0
+    with:
+      tag: v{YYYY}.{MM}-preview.{NNN}
+      release-tag: v{X}.{Y}.{Z}
+      github-release: prerelease

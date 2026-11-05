@@ -1,0 +1,26 @@
+# Manual: release `vX.Y.Z` from a preview tag, then the previous preview tags are deleted.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Preview tag to release (empty for the latest)
+        required: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: Release
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: read
+      actions: read
+    uses: Berack96/workflows/.github/workflows/release.yml@v1.0.0
+    with:
+      from: v{YYYY}.{MM}-preview.{NNN}
+      from-tag: ${{ inputs.tag }}
+      from-workflow: preview.yml
+      prune: true
