@@ -1,0 +1,40 @@
+# Lint, tests and security checks for PRs.
+name: PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+    uses: Berack96/workflows/.github/workflows/test.yml@v1.0.0
+    with:
+      mise: true
+      cache: |
+        ~/.cargo/registry
+        ~/.cargo/git
+        target
+      # Library without a committed Cargo.lock: the manifests key the cache.
+      cache-key: "**/Cargo.toml"
+      env: |
+        CARGO_TERM_COLOR=always
+      run: |
+        mise run rust:ci
+
+  security:
+    name: Security
+    if: ${{ !github.event.pull_request.draft }}
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: Berack96/workflows/.github/workflows/security.yml@v1.0.0
