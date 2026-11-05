@@ -1,0 +1,14 @@
+# PR title: it becomes the squash commit and decides the next version.
+name: Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  title:
+    name: Title
+    if: ${{ !github.event.pull_request.draft }}
+    uses: Berack96/workflows/.github/workflows/pr-title.yml@v1.0.0
