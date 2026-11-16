@@ -23,11 +23,19 @@ pub type DijkstraReaching<I> = Vec<(VertexId<I>, DijkstraReached<I>)>;
 /// whichever source reaches it at the lowest total edge weight, ties broken by the lower vertex
 /// id, rather than by running one Dijkstra per source and merging the results.
 #[derive(Debug, Clone, Copy)]
-pub struct MultiSourceDijkstra;
+pub struct MultiSourceDijkstra {
+    max_distance: f64,
+}
 
 impl MultiSourceDijkstra {
+    /// Expansion that leaves unreached every vertex farther than `max_distance` from all
+    /// sources; `f64::INFINITY` for no bound.
+    pub fn new(max_distance: f64) -> Self {
+        Self { max_distance }
+    }
+
     /// Runs the visit, `cost` giving the non-negative weight of each edge; lists every reached
-    /// vertex in the order its distance was finalized. Fails on a `sources` vertex missing from `view`.
+    /// vertex in the order its distance was finalized. Fails on a source missing from `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -74,6 +82,9 @@ impl MultiSourceDijkstra {
 
             for edge in view.edges().of(vertex) {
                 let next_distance = distance + cost(&edge);
+                if next_distance > self.max_distance {
+                    continue;
+                }
                 let is_shorter = match marks.get(edge.to) {
                     None => true,
                     Some(known) => next_distance < known.distance,

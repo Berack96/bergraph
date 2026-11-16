@@ -396,7 +396,7 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
     graph.edges_mut().add_edge_directed(s1, y, Km(2.0));
     graph.edges_mut().add_edge_directed(s2, y, Km(2.0));
 
-    let reached = MultiSourceDijkstra
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
         .visit(&graph, [s1, s2], |edge| edge.data.0)
         .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
@@ -434,12 +434,28 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
 }
 
 #[test]
+fn multi_source_dijkstra_stops_beyond_the_maximum_distance() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, c, Km(1.0));
+
+    let reached = MultiSourceDijkstra::new(1.0)
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
+    let ids: Vec<_> = reached.iter().map(|(id, _)| *id).collect();
+    assert_eq!(ids, vec![a, b]);
+}
+
+#[test]
 fn multi_source_dijkstra_omits_unreached_vertices() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
     let _isolated = graph.add_vertex("isolated");
 
-    let reached = MultiSourceDijkstra
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
         .visit(&graph, [a], |edge| edge.data.0)
         .unwrap();
     assert_eq!(
@@ -461,7 +477,7 @@ fn multi_source_dijkstra_reports_missing_source_vertex() {
     let missing = bergraph::VertexId::new(5);
 
     assert_eq!(
-        MultiSourceDijkstra.visit(&graph, [a, missing], |edge| edge.data.0),
+        MultiSourceDijkstra::new(f64::INFINITY).visit(&graph, [a, missing], |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -1348,7 +1364,7 @@ fn multi_source_dijkstra_keeps_a_source_attributed_to_itself_when_reachable_more
     let s2 = graph.add_vertex("s2");
     graph.edges_mut().add_edge_directed(s2, s1, Km(0.001));
 
-    let reached = MultiSourceDijkstra
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
         .visit(&graph, [s1, s2], |edge| edge.data.0)
         .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
@@ -1376,7 +1392,7 @@ fn multi_source_dijkstra_ignores_duplicate_sources() {
     let b = graph.add_vertex("b");
     graph.edges_mut().add_edge_directed(a, b, Km(1.0));
 
-    let reached = MultiSourceDijkstra
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
         .visit(&graph, [a, a], |edge| edge.data.0)
         .unwrap();
 
