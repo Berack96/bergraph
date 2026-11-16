@@ -501,6 +501,27 @@ fn connected_components_groups_vertices_reachable_from_one_another() {
 }
 
 #[test]
+fn connected_components_labels_each_vertex_with_the_first_of_its_component() {
+    let mut graph = GraphBuilder::<&str, ()>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge(c, a, ());
+    graph.edges_mut().add_edge(b, d, ());
+
+    assert_eq!(
+        ConnectedComponents.labels(&graph),
+        vec![Some(a), Some(b), Some(a), Some(b)]
+    );
+    let view = graph.filtered_view(|v: &&str| *v != "b", |_| true);
+    assert_eq!(
+        ConnectedComponents.labels(&view),
+        vec![Some(a), None, Some(a), Some(d)]
+    );
+}
+
+#[test]
 fn connected_components_of_an_empty_graph_is_empty() {
     let graph = GraphBuilder::<&str, ()>::new().build();
 

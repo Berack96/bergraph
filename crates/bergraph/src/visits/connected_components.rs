@@ -50,4 +50,31 @@ impl ConnectedComponents {
 
         components
     }
+
+    /// Labels each vertex the view exposes with the first vertex of its component, in `ids`
+    /// order; indexed by vertex id, `None` or past the end outside the view.
+    pub fn labels<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+    ) -> Vec<Option<VertexId<S::Id>>> {
+        let mut labels = VertexMarks::new(None);
+
+        for start in view.ids() {
+            if labels.get(start).is_some() {
+                continue;
+            }
+            let mut stack = vec![start];
+            labels.set(start, Some(start));
+            while let Some(current) = stack.pop() {
+                for edge in view.edges().of(current) {
+                    if labels.get(edge.to).is_none() {
+                        labels.set(edge.to, Some(start));
+                        stack.push(edge.to);
+                    }
+                }
+            }
+        }
+
+        labels.marks
+    }
 }
