@@ -16,6 +16,18 @@ fn creates_the_highest_representable_vertex_id() {
 }
 
 #[test]
+#[should_panic(expected = "ID overflow")]
+fn rejects_an_index_above_the_id_range() {
+    VertexId::<u8>::new(256);
+}
+
+#[test]
+#[should_panic(expected = "ID overflow")]
+fn rejects_the_index_equal_to_the_id_maximum() {
+    VertexId::<u8>::new(u8::MAX as usize);
+}
+
+#[test]
 fn orders_vertex_ids_by_their_dense_index() {
     let first = VertexId::<u16>::new(0);
     let second = VertexId::<u16>::new(1);

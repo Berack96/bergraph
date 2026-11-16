@@ -16,7 +16,7 @@ macro_rules! impl_unsigned_id {
             impl UnsignedId for $t {
                 type NonZero = NonZero<$t>;
                 #[inline(always)] fn to_nz(v: usize) -> Self::NonZero {
-                    NonZero::new((v as $t).wrapping_add(1)).expect("ID overflow")
+                    <$t>::try_from(v).ok().and_then(|v| v.checked_add(1)).and_then(NonZero::new).expect("ID overflow")
                 }
                 #[inline(always)] fn from_nz(nz: Self::NonZero) -> usize {
                     (nz.get() - 1) as usize
