@@ -117,6 +117,36 @@ pub trait GraphEdgeStorageDirected: GraphEdgeStorage {
     ) -> Option<Self::Edge>;
 }
 
+/// Dense index of an edge, `0..edge_count`, for callers that keep edge data in their own
+/// arrays. Stored as `id + 1` in a `NonZero`, so `Option<EdgeId>` costs no extra memory.
+#[repr(transparent)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", serde_feature)]
+pub struct EdgeId<I: UnsignedId>(I::NonZero);
+
+impl<I: UnsignedId> EdgeId<I> {
+    pub fn new(id: usize) -> Self {
+        Self(I::to_nz(id))
+    }
+
+    pub fn id(&self) -> usize {
+        I::from_nz(self.0)
+    }
+}
+
+// Not derived, for the same reason as `VertexId`'s: ordered by the dense index `id()` returns.
+impl<I: UnsignedId> PartialOrd for EdgeId<I> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<I: UnsignedId> Ord for EdgeId<I> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct Edge<E, I: UnsignedId> {

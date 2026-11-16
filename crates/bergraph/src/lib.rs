@@ -8,6 +8,7 @@ mod views;
 mod visits;
 
 pub use builder::GraphBuilder;
+pub use edges::EdgeId;
 pub use graph::Graph;
 pub use vertices::VertexId;
 
