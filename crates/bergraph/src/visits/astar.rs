@@ -7,7 +7,7 @@ use crate::{
     edges::{GraphEdgeStorage, Weighted},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult, reconstruct_path},
+    visits::{VertexMarks, VisitError, VisitResult, reconstruct_path},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -58,18 +58,14 @@ where
     pub fn new(target: VertexId<I>, heuristic: H) -> Self {
         Self { target, heuristic }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage, H> ViewVisit<V, S> for AStar<S::Id, H>
-where
-    S::Edge: Weighted,
-    H: Fn(VertexId<S::Id>) -> f64,
-{
-    type Output = Option<(Vec<VertexId<S::Id>>, f64)>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>>
     where
-        G: GraphView<V, S>,
+        S::Edge: Weighted,
     {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);

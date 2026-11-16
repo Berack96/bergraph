@@ -8,7 +8,7 @@ use crate::{
     edges::GraphEdgeStorageDirected,
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult},
+    visits::{VertexMarks, VisitError, VisitResult},
 };
 
 /// Every simple path (no repeated vertex) from a start vertex to `target`.
@@ -21,15 +21,12 @@ impl<I: UnsignedId> AllSimplePaths<I> {
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorageDirected> ViewVisit<V, S> for AllSimplePaths<S::Id> {
-    type Output = Vec<Vec<VertexId<S::Id>>>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+    pub fn visit<V: 'static, S: GraphEdgeStorageDirected<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+    ) -> VisitResult<Vec<Vec<VertexId<I>>>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }

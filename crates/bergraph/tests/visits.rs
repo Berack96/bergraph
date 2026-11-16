@@ -6,33 +6,8 @@ use bergraph::graph_visit::{
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
     DijkstraReached, Eccentricity, EulerianTrail, Flooded, MaxFlow, MinimumSpanningTree,
     MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, StronglyConnectedComponents,
-    TopologicalSort, TransitiveClosure, ViewVisit, VisitError,
+    TopologicalSort, TransitiveClosure, VisitError,
 };
-
-struct NoopVisitor;
-
-impl ViewVisit<String, AdjList<(), u32>> for NoopVisitor {
-    type Output = ();
-
-    fn visit<G>(
-        &self,
-        _view: &G,
-        _start: bergraph::VertexId<u32>,
-    ) -> bergraph::graph_visit::VisitResult<()>
-    where
-        G: GraphView<String, AdjList<(), u32>>,
-    {
-        Ok(())
-    }
-}
-
-#[test]
-fn visits_a_generic_graph_view() {
-    let mut graph = GraphBuilder::<String, ()>::new().build();
-    let a = graph.add_vertex("a".into());
-
-    assert_eq!(NoopVisitor.visit(&graph, a), Ok(()));
-}
 
 #[test]
 fn bfs_visits_reachable_vertices_in_order() {

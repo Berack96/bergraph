@@ -57,21 +57,7 @@ pub use transitive_closure::{Reachability, TransitiveClosure};
 
 use std::cmp::Ordering;
 
-use crate::{
-    edges::GraphEdgeStorage,
-    graph::GraphView,
-    vertices::{UnsignedId, VertexId},
-};
-
-/// A traversal over a generic graph view, bound to the graph kinds accepted by `S`.
-pub trait ViewVisit<V: 'static, S: GraphEdgeStorage> {
-    /// Result produced by the visit, custom to each implementation.
-    type Output;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>;
-}
+use crate::vertices::{UnsignedId, VertexId};
 
 pub type VisitResult<T> = Result<T, VisitError>;
 

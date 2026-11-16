@@ -2,7 +2,7 @@ use bergraph::{
     EdgeId, Graph, VertexId,
     graph_edges::{AdjCsr, CsrError, GraphEdgeStorage, GraphEdgeStorageDirected},
     graph_view::GraphView,
-    graph_visit::{Bfs, Dijkstra, ViewVisit},
+    graph_visit::{Bfs, Dijkstra},
 };
 
 fn v(id: usize) -> VertexId<u32> {

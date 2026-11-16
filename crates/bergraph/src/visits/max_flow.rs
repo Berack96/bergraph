@@ -8,7 +8,7 @@ use crate::{
     edges::{GraphEdgeStorageDirected, Weighted},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult, reconstruct_path},
+    visits::{VertexMarks, VisitError, VisitResult, reconstruct_path},
 };
 
 /// One entry per min-cut edge: an original arc from the source side of the final residual
@@ -28,17 +28,14 @@ impl<I: UnsignedId> MaxFlow<I> {
     pub fn new(sink: VertexId<I>) -> Self {
         Self { sink }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorageDirected> ViewVisit<V, S> for MaxFlow<S::Id>
-where
-    S::Edge: Weighted,
-{
-    type Output = (f64, MinCutEdges<S::Id>);
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
+    pub fn visit<V: 'static, S: GraphEdgeStorageDirected<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+    ) -> VisitResult<(f64, MinCutEdges<I>)>
     where
-        G: GraphView<V, S>,
+        S::Edge: Weighted,
     {
         if view.vertex(start).is_none() || view.vertex(self.sink).is_none() {
             return Err(VisitError::VertexNotFound);
