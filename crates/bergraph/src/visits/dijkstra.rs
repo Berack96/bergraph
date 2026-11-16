@@ -1,44 +1,18 @@
 //! Dijkstra shortest-path visit, available for any graph, directed or undirected.
 
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::{
     edges::{GraphEdgeStorage, Weighted},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult},
+    visits::{MinEntry, VertexMarks, ViewVisit, VisitError, VisitResult},
 };
 
 #[derive(Debug, Clone, Copy)]
 enum Mark {
     Unvisited,
     Distance(f64),
-}
-
-struct HeapEntry<I: UnsignedId> {
-    distance: f64,
-    vertex: VertexId<I>,
-}
-
-impl<I: UnsignedId> PartialEq for HeapEntry<I> {
-    fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance
-    }
-}
-impl<I: UnsignedId> Eq for HeapEntry<I> {}
-impl<I: UnsignedId> PartialOrd for HeapEntry<I> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl<I: UnsignedId> Ord for HeapEntry<I> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed: BinaryHeap is a max-heap, Dijkstra needs the smallest distance first.
-        other
-            .distance
-            .partial_cmp(&self.distance)
-            .unwrap_or(Ordering::Equal)
-    }
 }
 
 /// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
@@ -72,12 +46,16 @@ where
         let mut heap = BinaryHeap::new();
 
         marks.set(start, Mark::Distance(0.0));
-        heap.push(HeapEntry {
-            distance: 0.0,
+        heap.push(MinEntry {
+            priority: 0.0,
             vertex: start,
         });
 
-        while let Some(HeapEntry { distance, vertex }) = heap.pop() {
+        while let Some(MinEntry {
+            priority: distance,
+            vertex,
+        }) = heap.pop()
+        {
             if vertex == self.target {
                 break;
             }
@@ -94,8 +72,8 @@ where
                 if is_shorter {
                     marks.set(edge.to, Mark::Distance(next_distance));
                     previous.set(edge.to, Some(vertex));
-                    heap.push(HeapEntry {
-                        distance: next_distance,
+                    heap.push(MinEntry {
+                        priority: next_distance,
                         vertex: edge.to,
                     });
                 }

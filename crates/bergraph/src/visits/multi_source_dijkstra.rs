@@ -1,12 +1,12 @@
 //! Multi-source Dijkstra visit, available for any graph, directed or undirected.
 
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::{
     edges::{GraphEdgeStorage, Weighted},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, VisitError, VisitResult},
+    visits::{MinEntry, VertexMarks, VisitError, VisitResult},
 };
 
 /// Total edge weight from, and identity of, the source that reaches a vertex at the lowest cost.
@@ -19,38 +19,9 @@ pub struct DijkstraReached<I: UnsignedId> {
 /// One `(vertex, reached)` entry per vertex a multi-source Dijkstra visit reached.
 pub type DijkstraReaching<I> = Vec<(VertexId<I>, DijkstraReached<I>)>;
 
-struct HeapEntry<I: UnsignedId> {
-    distance: f64,
-    // Secondary key, breaking distance ties by push order: BinaryHeap's pop order among
-    // equal-priority entries is otherwise unspecified.
-    sequence: u64,
-    vertex: VertexId<I>,
-}
-impl<I: UnsignedId> PartialEq for HeapEntry<I> {
-    fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance && self.sequence == other.sequence
-    }
-}
-impl<I: UnsignedId> Eq for HeapEntry<I> {}
-impl<I: UnsignedId> PartialOrd for HeapEntry<I> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl<I: UnsignedId> Ord for HeapEntry<I> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed: BinaryHeap is a max-heap, Dijkstra needs the smallest (distance, sequence) first.
-        other
-            .distance
-            .partial_cmp(&self.distance)
-            .unwrap_or(Ordering::Equal)
-            .then_with(|| other.sequence.cmp(&self.sequence))
-    }
-}
-
 /// Dijkstra expansion from several start vertices at once: every vertex is attributed to
-/// whichever source reaches it at the lowest total edge weight, ties broken by `sources`
-/// input order, rather than by running one Dijkstra per source and merging the results.
+/// whichever source reaches it at the lowest total edge weight, ties broken by the lower vertex
+/// id, rather than by running one Dijkstra per source and merging the results.
 #[derive(Debug, Clone, Copy)]
 pub struct MultiSourceDijkstra;
 
@@ -67,7 +38,6 @@ impl MultiSourceDijkstra {
     {
         let mut marks: VertexMarks<Option<DijkstraReached<S::Id>>> = VertexMarks::new(None);
         let mut heap = BinaryHeap::new();
-        let mut next_sequence = 0u64;
 
         for source in sources {
             if view.vertex(source).is_none() {
@@ -83,17 +53,16 @@ impl MultiSourceDijkstra {
                     source,
                 }),
             );
-            heap.push(HeapEntry {
-                distance: 0.0,
-                sequence: next_sequence,
+            heap.push(MinEntry {
+                priority: 0.0,
                 vertex: source,
             });
-            next_sequence += 1;
         }
 
         let mut order = Vec::new();
-        while let Some(HeapEntry {
-            distance, vertex, ..
+        while let Some(MinEntry {
+            priority: distance,
+            vertex,
         }) = heap.pop()
         {
             let current = marks
@@ -119,12 +88,10 @@ impl MultiSourceDijkstra {
                             source,
                         }),
                     );
-                    heap.push(HeapEntry {
-                        distance: next_distance,
-                        sequence: next_sequence,
+                    heap.push(MinEntry {
+                        priority: next_distance,
                         vertex: edge.to,
                     });
-                    next_sequence += 1;
                 }
             }
         }
