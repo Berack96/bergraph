@@ -2,234 +2,183 @@
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::{
-        Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, GraphEdgeStorageDirectedMut,
-        GraphEdgeStorageMut, MaybeSerde,
-    },
+    edges::{EdgeId, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},
     vertices::{UnsignedId, VertexId},
 };
 
-/// Compressed Sparse Row edge storage: outgoing arcs are packed into two flat, contiguous
-/// arrays (`targets`/`data`), grouped by `from` and located via `offsets`. No per-vertex
-/// `Vec` indirection, so [`all`](GraphEdgeStorage::all) is a single linear scan with
-/// good cache locality — the format's whole point.
-///
-/// The trade-off is mutation: [`with_edges`](GraphEdgeStorageMut::with_edges) builds the packed
-/// layout in one O(V + E) counting sort, but a single
-/// [`add_edge_directed`](GraphEdgeStorageDirectedMut::add_edge_directed) or
-/// [`remove_edge_directed`](GraphEdgeStorageDirectedMut::remove_edge_directed) call is O(V + E),
-/// since it has to shift the packed arrays. CSR fits graphs that are mostly built once (or in
-/// batches) and then read many times, not ones mutated edge-by-edge.
+/// Static Compressed Sparse Row storage, built once from a full edge list. No edge data: an
+/// edge's position in the packed array is its [`EdgeId`], so callers keep their data indexed by id.
+// shortcut: deserialization does not validate the arrays, so inconsistent input panics on use; add a validating `try_from` if graphs come from untrusted sources.
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjCsr<E, I: UnsignedId> {
-    offsets: Vec<usize>,
-    targets: Vec<VertexId<I>>,
-    data: Vec<E>,
+pub struct AdjCsr<VI: UnsignedId = u32, EI: UnsignedId = u32> {
+    offsets: Vec<EI>,
+    targets: Vec<VertexId<VI>>,
+    twins: Vec<EdgeId<EI>>,
 }
 
-impl<E: 'static, I: UnsignedId> AdjCsr<E, I> {
-    pub fn new() -> Self {
-        Self {
-            offsets: vec![0],
-            targets: Vec::new(),
-            data: Vec::new(),
-        }
+/// Why an edge list cannot become an [`AdjCsr`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CsrError {
+    /// The vertex count does not fit the vertex id type.
+    TooManyVertices,
+    /// The edge count does not fit the edge index type.
+    TooManyEdges,
+    /// An edge endpoint is not below the vertex count.
+    VertexOutOfRange,
+}
+
+impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
+    /// Directed graph with one edge per `(from, to)` pair; returns the id of each input edge, in order.
+    pub fn directed(
+        vertex_count: usize,
+        edges: &[(VertexId<VI>, VertexId<VI>)],
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+        Self::build(vertex_count, edges, false)
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        let mut offsets = Vec::with_capacity(capacity + 1);
-        offsets.push(0);
-        Self {
+    /// Undirected graph: each pair becomes two twin half-edges, one for a self-loop; returns the
+    /// id of each input `from -> to` half-edge, in order.
+    pub fn undirected(
+        vertex_count: usize,
+        edges: &[(VertexId<VI>, VertexId<VI>)],
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+        Self::build(vertex_count, edges, true)
+    }
+
+    fn vertex_count(&self) -> usize {
+        self.offsets.len() - 1
+    }
+
+    /// The reverse half-edge of `edge` in an undirected graph, `None` in a directed one.
+    pub fn twin(&self, edge: EdgeId<EI>) -> Option<EdgeId<EI>> {
+        self.twins.get(edge.id()).copied()
+    }
+
+    fn build(
+        vertex_count: usize,
+        edges: &[(VertexId<VI>, VertexId<VI>)],
+        undirected: bool,
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+        if VI::try_from_usize(vertex_count).is_none() || vertex_count == usize::MAX {
+            return Err(CsrError::TooManyVertices);
+        }
+        if edges
+            .iter()
+            .any(|(from, to)| from.id() >= vertex_count || to.id() >= vertex_count)
+        {
+            return Err(CsrError::VertexOutOfRange);
+        }
+
+        let mut offsets = vec![0usize; vertex_count + 1];
+        for (from, to) in edges {
+            offsets[from.id() + 1] += 1;
+            if undirected && from != to {
+                offsets[to.id() + 1] += 1;
+            }
+        }
+        for i in 1..offsets.len() {
+            offsets[i] += offsets[i - 1];
+        }
+        let edge_count = offsets[vertex_count];
+        EI::try_from_usize(edge_count).ok_or(CsrError::TooManyEdges)?;
+
+        let mut cursor = offsets.clone();
+        let mut targets = vec![VertexId::new(0); edge_count];
+        let mut place = |from: VertexId<VI>, to: VertexId<VI>| {
+            let edge = cursor[from.id()];
+            cursor[from.id()] += 1;
+            targets[edge] = to;
+            edge
+        };
+        let mut twins = if undirected {
+            vec![EdgeId::new(0); edge_count]
+        } else {
+            Vec::new()
+        };
+        let mut ids = Vec::with_capacity(edges.len());
+        for &(from, to) in edges {
+            let forward = place(from, to);
+            if undirected {
+                let backward = if from == to { forward } else { place(to, from) };
+                twins[forward] = EdgeId::new(backward);
+                twins[backward] = EdgeId::new(forward);
+            }
+            ids.push(EdgeId::new(forward));
+        }
+
+        let offsets = offsets
+            .into_iter()
+            .map(|offset| EI::try_from_usize(offset).expect("offsets never exceed the edge count"))
+            .collect();
+        let csr = Self {
             offsets,
-            targets: Vec::new(),
-            data: Vec::new(),
-        }
+            targets,
+            twins,
+        };
+        Ok((csr, ids))
     }
 
-    fn ensure_vertex(&mut self, id: usize) {
-        if id + 2 > self.offsets.len() {
-            let last = *self.offsets.last().unwrap();
-            self.offsets.resize(id + 2, last);
-        }
-    }
-
-    fn range_of(&self, id: usize) -> std::ops::Range<usize> {
-        match (self.offsets.get(id), self.offsets.get(id + 1)) {
-            (Some(&start), Some(&end)) => start..end,
+    fn range_of(&self, id: VertexId<VI>) -> std::ops::Range<usize> {
+        match (self.offsets.get(id.id()), self.offsets.get(id.id() + 1)) {
+            (Some(start), Some(end)) => start.to_usize()..end.to_usize(),
             _ => 0..0,
         }
     }
 }
 
-impl<E: 'static, I: UnsignedId> Default for AdjCsr<E, I> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+impl<VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjCsr<VI, EI> {
+    type Edge = ();
+    type Id = VI;
+    type EdgeKey = EdgeId<EI>;
 
-impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjCsr<E, I> {
-    type Edge = E;
-    type Id = I;
-    type EdgeKey = ();
-
-    fn of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
-        self.range_of(id.id())
-            .map(move |i| EdgeView::new(id, self.targets[i], &self.data[i], ()))
-    }
-
-    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
-        self.offsets
-            .windows(2)
-            .enumerate()
-            .flat_map(move |(from, w)| {
-                let from_vertex = VertexId::new(from);
-                (w[0]..w[1])
-                    .map(move |i| EdgeView::new(from_vertex, self.targets[i], &self.data[i], ()))
-            })
-    }
-
-    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
-        self.range_of(from.id())
-            .find(|&i| self.targets[i] == *to)
-            .map(|i| &self.data[i])
-    }
-
-    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
-        self.get(from, to).is_some()
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
+        (0..self.vertex_count()).flat_map(move |from| self.of(VertexId::new(from)))
     }
 
     fn count(&self) -> usize {
         self.targets.len()
     }
 
-    fn count_of(&self, id: VertexId<I>) -> usize {
-        self.range_of(id.id()).len()
+    fn of(&self, id: VertexId<VI>) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
+        self.range_of(id)
+            .map(move |edge| EdgeView::new(id, self.targets[edge], &(), EdgeId::new(edge)))
+    }
+
+    fn count_of(&self, id: VertexId<VI>) -> usize {
+        self.range_of(id).len()
+    }
+
+    fn get(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> Option<&()> {
+        self.has_edge(from, to).then_some(&())
+    }
+
+    fn has_edge(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> bool {
+        self.range_of(*from).any(|edge| self.targets[edge] == *to)
     }
 }
 
-impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageMut for AdjCsr<E, I> {
-    fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
-    where
-        E: Clone,
-    {
-        if from == to {
-            self.add_edge_directed(from, to, data);
-        } else {
-            self.add_edge_directed(from, to, data.clone());
-            self.add_edge_directed(to, from, data);
-        }
-    }
-
-    fn remove_edge(&mut self, from: VertexId<I>, to: VertexId<I>) -> Option<E> {
-        let removed = self.remove_edge_directed(from, to);
-        if from != to {
-            self.remove_edge_directed(to, from);
-        }
-        removed
-    }
-
-    fn with_capacity(capacity: usize) -> Self {
-        let mut offsets = Vec::with_capacity(capacity + 1);
-        offsets.push(0);
-        Self {
-            offsets,
-            targets: Vec::new(),
-            data: Vec::new(),
-        }
-    }
-
-    fn with_edges(edges: Vec<Edge<E, I>>) -> Self {
-        let vertex_count = edges
-            .iter()
-            .map(|edge| edge.from.id().max(edge.to.id()) + 1)
-            .max()
-            .unwrap_or(0);
-
-        let mut offsets = vec![0usize; vertex_count + 1];
-        for edge in &edges {
-            offsets[edge.from.id() + 1] += 1;
-        }
-        for i in 1..offsets.len() {
-            offsets[i] += offsets[i - 1];
-        }
-
-        let mut cursor = offsets.clone();
-        let mut slots: Vec<Option<(VertexId<I>, E)>> = (0..edges.len()).map(|_| None).collect();
-        for edge in edges {
-            let pos = cursor[edge.from.id()];
-            cursor[edge.from.id()] += 1;
-            slots[pos] = Some((edge.to, edge.data));
-        }
-
-        let (targets, data) = slots
-            .into_iter()
-            .map(|slot| slot.expect("csr construction fills every slot exactly once"))
-            .unzip();
-
-        Self {
-            offsets,
-            targets,
-            data,
-        }
-    }
-
-    fn add_all(&mut self, from: VertexId<I>, edges: impl IntoIterator<Item = (VertexId<I>, E)>) {
-        for (to, data) in edges {
-            self.add_edge_directed(from, to, data);
-        }
-    }
-
-    fn remove_all(&mut self, from: VertexId<I>) -> Vec<(VertexId<I>, E)> {
-        self.range_of(from.id())
-            .map(|i| self.targets[i])
-            .collect::<Vec<_>>()
-            .into_iter()
-            .filter_map(|to| self.remove_edge_directed(from, to).map(|data| (to, data)))
-            .collect()
-    }
-}
-
-impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirected
-    for AdjCsr<E, I>
+impl<VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde> GraphEdgeStorageDirected
+    for AdjCsr<VI, EI>
 {
-    fn children_of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn children_of(
+        &self,
+        id: VertexId<VI>,
+    ) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
         self.of(id)
     }
 
-    fn parents_of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn parents_of(
+        &self,
+        id: VertexId<VI>,
+    ) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
         self.all().filter(move |edge| edge.to == id)
     }
 
-    fn count_incoming(&self, id: VertexId<I>) -> usize {
+    fn count_incoming(&self, id: VertexId<VI>) -> usize {
         self.parents_of(id).count()
     }
 
-    fn count_outgoing(&self, id: VertexId<I>) -> usize {
+    fn count_outgoing(&self, id: VertexId<VI>) -> usize {
         self.count_of(id)
-    }
-}
-
-impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirectedMut
-    for AdjCsr<E, I>
-{
-    fn add_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>, data: E) {
-        let from = from.id();
-        self.ensure_vertex(from);
-        let insert_at = self.offsets[from + 1];
-        self.targets.insert(insert_at, to);
-        self.data.insert(insert_at, data);
-        for offset in &mut self.offsets[from + 1..] {
-            *offset += 1;
-        }
-    }
-
-    fn remove_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>) -> Option<E> {
-        let pos = self.range_of(from.id()).find(|&i| self.targets[i] == to)?;
-        self.targets.remove(pos);
-        let data = self.data.remove(pos);
-        for offset in &mut self.offsets[from.id() + 1..] {
-            *offset -= 1;
-        }
-        Some(data)
     }
 }

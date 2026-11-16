@@ -8,6 +8,9 @@ pub trait UnsignedId: Debug + Copy + Eq + Hash {
     type NonZero: Debug + Copy + Eq + Hash + Ord;
     fn to_nz(v: usize) -> Self::NonZero;
     fn from_nz(nz: Self::NonZero) -> usize;
+    /// The plain value `v`, `None` when it does not fit.
+    fn try_from_usize(v: usize) -> Option<Self>;
+    fn to_usize(self) -> usize;
 }
 
 macro_rules! impl_unsigned_id {
@@ -20,6 +23,12 @@ macro_rules! impl_unsigned_id {
                 }
                 #[inline(always)] fn from_nz(nz: Self::NonZero) -> usize {
                     usize::try_from(nz.get() - 1).expect("ID overflow")
+                }
+                #[inline(always)] fn try_from_usize(v: usize) -> Option<Self> {
+                    <$t>::try_from(v).ok()
+                }
+                #[inline(always)] fn to_usize(self) -> usize {
+                    usize::try_from(self).expect("ID overflow")
                 }
             }
         )*

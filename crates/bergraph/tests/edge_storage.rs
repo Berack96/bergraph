@@ -106,7 +106,6 @@ macro_rules! storage_tests {
 storage_tests! {
     adj_list => bergraph::graph_edges::AdjList<String, u32>,
     adj_list_fixed => bergraph::graph_edges::AdjListFixed<String, u32, 2>,
-    adj_csr => bergraph::graph_edges::AdjCsr<String, u32>,
     adj_matrix => bergraph::graph_edges::AdjMatrix<String, u32>,
 }
 

@@ -1,8 +1,8 @@
 #![cfg(feature = "serde")]
 
 use bergraph::{
-    Graph, GraphBuilder, VertexId,
-    graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirectedMut},
+    EdgeId, Graph, GraphBuilder, VertexId,
+    graph_edges::{AdjCsr, AdjList, GraphEdgeStorage, GraphEdgeStorageDirectedMut},
     graph_view::GraphView,
 };
 use serde::{Deserialize, Serialize};
@@ -123,4 +123,21 @@ fn round_trips_a_graph_with_struct_vertex_and_edge_data() {
         let id = VertexId::new(i);
         assert_eq!(graph.vertex(id), deserialized.vertex(id));
     }
+}
+
+#[test]
+fn round_trips_a_static_csr_with_its_edge_ids_and_twins() {
+    let edges = [
+        (VertexId::new(0), VertexId::new(1)),
+        (VertexId::new(1), VertexId::new(2)),
+    ];
+    let (csr, ids) = AdjCsr::<u16, u32>::undirected(3, &edges).unwrap();
+
+    let json = serde_json::to_string(&csr).unwrap();
+    let restored: AdjCsr<u16, u32> = serde_json::from_str(&json).unwrap();
+
+    assert!(csr.all().eq(restored.all()));
+    assert_eq!(restored.twin(ids[0]), csr.twin(ids[0]));
+    let edge: EdgeId<u32> = serde_json::from_str(&serde_json::to_string(&ids[1]).unwrap()).unwrap();
+    assert_eq!(edge, ids[1]);
 }
