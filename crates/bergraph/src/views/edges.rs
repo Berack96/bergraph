@@ -4,7 +4,7 @@ use crate::{
     views::{EdgeFilter, VertexFilter},
 };
 
-pub struct EdgeFilteredView<'a, V: 'static, S: GraphEdgeStorage> {
+pub struct EdgeFilteredView<'a, V, S: GraphEdgeStorage> {
     edge_storage: &'a S,
     filter_edges: Option<EdgeFilter<'a, S::Edge>>,
     vertices: &'a [V],

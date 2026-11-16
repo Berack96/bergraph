@@ -18,7 +18,7 @@ use crate::{
 /// known-ish vertex count; wasteful for large sparse graphs, where `AdjList`/`AdjCsr` fit
 /// better.
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjMatrix<E: 'static, I: UnsignedId> {
+pub struct AdjMatrix<E, I: UnsignedId> {
     cells: Vec<Option<E>>,
     size: usize,
     edge_count: usize,

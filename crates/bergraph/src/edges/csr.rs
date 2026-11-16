@@ -18,7 +18,7 @@ use crate::{
 /// since it has to shift the packed arrays. CSR fits graphs that are mostly built once (or in
 /// batches) and then read many times, not ones mutated edge-by-edge.
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjCsr<E: 'static, I: UnsignedId> {
+pub struct AdjCsr<E, I: UnsignedId> {
     offsets: Vec<usize>,
     targets: Vec<VertexId<I>>,
     data: Vec<E>,

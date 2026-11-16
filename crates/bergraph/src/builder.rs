@@ -6,11 +6,7 @@ use crate::{
     vertices::UnsignedId,
 };
 
-pub struct GraphBuilder<V: 'static, E: 'static, I = u32, S = AdjList<E, I>>
-where
-    I: UnsignedId,
-    S: GraphEdgeStorage<Edge = E, Id = I>,
-{
+pub struct GraphBuilder<V, E, I = u32, S = AdjList<E, I>> {
     vertices: Option<Vec<V>>,
     _marker: PhantomData<(V, E, I, S)>,
 }

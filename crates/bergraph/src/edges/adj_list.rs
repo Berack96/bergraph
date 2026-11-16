@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjList<E: 'static, I: UnsignedId> {
+pub struct AdjList<E, I: UnsignedId> {
     edges: Vec<Vec<EdgeSimple<E, I>>>,
     edge_count: usize,
 }
