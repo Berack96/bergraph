@@ -1,5 +1,5 @@
 //! Minimum spanning tree, available for any graph, directed or undirected: reads
-//! [`GraphEdgeStorage::get_all`] as an undirected multiset of weighted arcs, same one-way
+//! [`GraphEdgeStorage::all`] as an undirected multiset of weighted arcs, same one-way
 //! caveat as [`ConnectedComponents`](super::ConnectedComponents) on a graph built one
 //! direction at a time via
 //! [`add_edge_directed`](crate::edges::GraphEdgeStorageDirected::add_edge_directed).
@@ -30,7 +30,7 @@ impl MinimumSpanningTree {
     {
         let mut edges: MstEdges<S::Id> = view
             .edges()
-            .get_all()
+            .all()
             .map(|edge| (edge.from, edge.to, edge.data.weight()))
             .collect();
         edges.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));

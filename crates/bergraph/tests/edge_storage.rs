@@ -23,7 +23,7 @@ macro_rules! storage_tests {
                     assert_eq!(edges[0].from, from);
                     assert_eq!(edges[0].to, to);
                     assert_eq!(edges[0].data, "edge");
-                    assert_eq!(storage.get_all().count(), 1);
+                    assert_eq!(storage.all().count(), 1);
                 }
 
                 #[test]
@@ -61,7 +61,7 @@ macro_rules! storage_tests {
 
                     assert!(storage.has_edge(&a, &b));
                     assert!(storage.has_edge(&b, &a));
-                    assert_eq!(storage.get_all().count(), 2);
+                    assert_eq!(storage.all().count(), 2);
                 }
 
                 #[test]
@@ -71,7 +71,7 @@ macro_rules! storage_tests {
 
                     storage.add_edge(a, a, String::from("loop"));
 
-                    assert_eq!(storage.get_all().count(), 1);
+                    assert_eq!(storage.all().count(), 1);
                 }
 
                 #[test]
@@ -84,7 +84,7 @@ macro_rules! storage_tests {
 
                     assert!(storage.has_edge(&a, &b));
                     assert!(storage.has_edge(&b, &a));
-                    assert_eq!(storage.get_all().count(), 2);
+                    assert_eq!(storage.all().count(), 2);
                 }
 
                 #[test]

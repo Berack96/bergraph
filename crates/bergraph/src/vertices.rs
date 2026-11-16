@@ -16,10 +16,10 @@ macro_rules! impl_unsigned_id {
             impl UnsignedId for $t {
                 type NonZero = NonZero<$t>;
                 #[inline(always)] fn to_nz(v: usize) -> Self::NonZero {
-                    NonZero::new((v as $t).wrapping_add(1)).expect("ID overflow")
+                    <$t>::try_from(v).ok().and_then(|v| v.checked_add(1)).and_then(NonZero::new).expect("ID overflow")
                 }
                 #[inline(always)] fn from_nz(nz: Self::NonZero) -> usize {
-                    (nz.get() - 1) as usize
+                    usize::try_from(nz.get() - 1).expect("ID overflow")
                 }
             }
         )*
@@ -31,7 +31,7 @@ impl_unsigned_id!(u8, u16, u32, u64, u128, usize);
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct VertexId<I: UnsignedId>(pub I::NonZero);
+pub struct VertexId<I: UnsignedId>(I::NonZero);
 
 impl<I: UnsignedId> VertexId<I> {
     pub fn new(id: usize) -> Self {

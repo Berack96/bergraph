@@ -53,7 +53,7 @@ mod test_builder {
                 String::from("c"),
                 String::from("d"),
             ])
-            .as_adjlist_fixed_max_degree::<6>()
+            .into_adjlist_fixed_max_degree::<6>()
             .build();
 
         assert!(graph.len() == 4);

@@ -8,7 +8,7 @@ use crate::{
 
 /// Compressed Sparse Row edge storage: outgoing arcs are packed into two flat, contiguous
 /// arrays (`targets`/`data`), grouped by `from` and located via `offsets`. No per-vertex
-/// `Vec` indirection, so [`get_all`](GraphEdgeStorage::get_all) is a single linear scan with
+/// `Vec` indirection, so [`all`](GraphEdgeStorage::all) is a single linear scan with
 /// good cache locality — the format's whole point.
 ///
 /// The trade-off is mutation: [`with_edges`](GraphEdgeStorage::with_edges) builds the packed
@@ -18,7 +18,7 @@ use crate::{
 /// since it has to shift the packed arrays. CSR fits graphs that are mostly built once (or in
 /// batches) and then read many times, not ones mutated edge-by-edge.
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjCsr<E: 'static, I: UnsignedId> {
+pub struct AdjCsr<E, I: UnsignedId> {
     offsets: Vec<usize>,
     targets: Vec<VertexId<I>>,
     data: Vec<E>,
@@ -73,7 +73,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             .map(move |i| EdgeView::new(id, self.targets[i], &self.data[i]))
     }
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         self.offsets
             .windows(2)
             .enumerate()
@@ -191,7 +191,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
     }
 
     fn parents_of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
-        self.get_all().filter(move |edge| edge.to == id)
+        self.all().filter(move |edge| edge.to == id)
     }
 
     fn count_incoming(&self, id: VertexId<I>) -> usize {

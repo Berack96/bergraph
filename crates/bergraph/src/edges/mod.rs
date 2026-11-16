@@ -48,7 +48,7 @@ pub trait GraphEdgeStorage {
     fn with_capacity(capacity: usize) -> Self;
     fn with_edges(edges: Vec<Edge<Self::Edge, Self::Id>>) -> Self;
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, Self::Edge, Self::Id>>;
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, Self::Edge, Self::Id>>;
     fn count(&self) -> usize;
 
     fn of(

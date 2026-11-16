@@ -57,7 +57,7 @@ where
             list.extend(view.edges().parents_of(v).map(|e| e.from));
             neighbors.set(v, list);
         }
-        for edge in view.edges().get_all() {
+        for edge in view.edges().all() {
             *residual.entry((edge.from, edge.to)).or_insert(0.0) += edge.data.weight();
             residual.entry((edge.to, edge.from)).or_insert(0.0);
         }
@@ -98,13 +98,13 @@ where
             max_flow += bottleneck;
         };
 
-        // `get_all` isn't vertex-filtered, so it's checked against `view.vertex` here too: an
+        // `all` isn't vertex-filtered, so it's checked against `view.vertex` here too: an
         // arc from a reachable in-view vertex to one a `GraphFilteredView` excludes would
         // otherwise be reported as a cut edge, even though its far endpoint isn't part of the
         // view at all.
         let min_cut: MinCutEdges<S::Id> = view
             .edges()
-            .get_all()
+            .all()
             .filter(|edge| view.vertex(edge.from).is_some() && view.vertex(edge.to).is_some())
             .filter(|edge| *final_reachable.get(edge.from) && !*final_reachable.get(edge.to))
             .map(|edge| (edge.from, edge.to))

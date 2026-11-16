@@ -23,7 +23,7 @@ pub trait GraphView<V: 'static, S: GraphEdgeStorage> {
 
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct Graph<V: 'static, S: GraphEdgeStorage> {
+pub struct Graph<V, S> {
     pub(crate) vertices: Vec<V>,
     pub(crate) edge_storage: S,
 }
@@ -49,20 +49,26 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
         self.vertices.get_mut(id.id())
     }
 
-    pub fn get_view(&self) -> GraphFilteredView<'_, V, S> {
-        self.get_filtered_view(None, None)
+    pub fn view(&self) -> GraphFilteredView<'_, V, S>
+    where
+        V: 'static,
+    {
+        self.filtered_view(None, None)
     }
 
-    pub fn get_filtered_view<'a>(
+    pub fn filtered_view<'a>(
         &'a self,
         filter_vertices: Option<VertexFilter<'a, V>>,
         filter_edges: Option<EdgeFilter<'a, S::Edge>>,
-    ) -> GraphFilteredView<'a, V, S> {
+    ) -> GraphFilteredView<'a, V, S>
+    where
+        V: 'static,
+    {
         GraphFilteredView::new(self, filter_vertices, filter_edges)
     }
 }
 
-impl<V, S: GraphEdgeStorage> GraphView<V, S> for Graph<V, S> {
+impl<V: 'static, S: GraphEdgeStorage> GraphView<V, S> for Graph<V, S> {
     fn len(&self) -> usize {
         self.vertices.len()
     }
