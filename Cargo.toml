@@ -4,7 +4,7 @@ members = ["crates/oxygraph", "crates/oxygraph-derive"]
 
 [workspace.package]
 edition = "2024"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 repository = "https://github.com/Berack96/oxygraph"
 
 [workspace.dependencies]
