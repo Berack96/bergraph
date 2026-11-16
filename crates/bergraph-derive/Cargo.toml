@@ -1,10 +1,10 @@
 [package]
-name = "oxygraph-derive"
+name = "bergraph-derive"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Derive macros for oxygraph"
+description = "Derive macros for bergraph"
 
 [lib]
 proc-macro = true

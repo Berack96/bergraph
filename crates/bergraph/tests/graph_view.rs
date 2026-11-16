@@ -1,6 +1,6 @@
-use oxygraph::graph_edges::GraphEdgeStorage;
-use oxygraph::graph_view::GraphView;
-use oxygraph::{GraphBuilder, VertexId};
+use bergraph::graph_edges::GraphEdgeStorage;
+use bergraph::graph_view::GraphView;
+use bergraph::{GraphBuilder, VertexId};
 
 #[test]
 fn reads_vertices_from_a_graph_view() {

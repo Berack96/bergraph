@@ -1,6 +1,6 @@
 //! Struct central to the library, representing a graph and its associated data structures.
 
-use oxygraph_derive::serde_feature;
+use bergraph_derive::serde_feature;
 
 use crate::{
     edges::GraphEdgeStorage,

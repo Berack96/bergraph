@@ -1,4 +1,4 @@
-//! Derive macros for oxygraph. Empty scaffold until a derive is actually needed.
+//! Derive macros for bergraph. Empty scaffold until a derive is actually needed.
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashMap;

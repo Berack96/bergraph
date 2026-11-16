@@ -1,5 +1,5 @@
-use oxygraph::graph_view::GraphView;
-use oxygraph::{GraphBuilder, VertexId};
+use bergraph::graph_view::GraphView;
+use bergraph::{GraphBuilder, VertexId};
 
 #[test]
 fn adds_and_reads_vertices() {

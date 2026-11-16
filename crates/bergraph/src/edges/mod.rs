@@ -8,7 +8,7 @@ pub use csr::AdjCsr;
 pub use fixed::AdjListFixed;
 pub use matrix::AdjMatrix;
 
-use oxygraph_derive::serde_feature;
+use bergraph_derive::serde_feature;
 
 use crate::vertices::{UnsignedId, VertexId};
 

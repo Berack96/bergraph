@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use oxygraph_derive::serde_feature;
+use bergraph_derive::serde_feature;
 
 use crate::{
     edges::{Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},

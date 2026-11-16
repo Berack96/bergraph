@@ -1,7 +1,7 @@
-use oxygraph::GraphBuilder;
-use oxygraph::graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirected, Weighted};
-use oxygraph::graph_view::GraphView;
-use oxygraph::graph_visit::{
+use bergraph::GraphBuilder;
+use bergraph::graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirected, Weighted};
+use bergraph::graph_view::GraphView;
+use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
     DijkstraReached, Eccentricity, EulerianTrail, MaxFlow, MinimumSpanningTree, MultiSourceBfs,
@@ -17,8 +17,8 @@ impl ViewVisit<String, AdjList<(), u32>> for NoopVisitor {
     fn visit<G>(
         &self,
         _view: &G,
-        _start: oxygraph::VertexId<u32>,
-    ) -> oxygraph::graph_visit::VisitResult<()>
+        _start: bergraph::VertexId<u32>,
+    ) -> bergraph::graph_visit::VisitResult<()>
     where
         G: GraphView<String, AdjList<(), u32>>,
     {
@@ -50,7 +50,7 @@ fn bfs_visits_reachable_vertices_in_order() {
 #[test]
 fn bfs_reports_missing_start_vertex() {
     let graph = GraphBuilder::<&str, ()>::new().build();
-    let missing = oxygraph::VertexId::new(0);
+    let missing = bergraph::VertexId::new(0);
 
     assert_eq!(Bfs.visit(&graph, missing), Err(VisitError::VertexNotFound));
 }
@@ -95,7 +95,7 @@ fn dfs_visits_reachable_vertices() {
 #[test]
 fn dfs_reports_missing_start_vertex() {
     let graph = GraphBuilder::<&str, ()>::new().build();
-    let missing = oxygraph::VertexId::new(0);
+    let missing = bergraph::VertexId::new(0);
 
     assert_eq!(Dfs.visit(&graph, missing), Err(VisitError::VertexNotFound));
 }
@@ -204,7 +204,7 @@ fn bfs_to_any_returns_none_when_no_target_is_reachable() {
 fn bfs_to_any_reports_missing_start_vertex() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     let b = graph.add_vertex("b");
-    let missing = oxygraph::VertexId::new(1);
+    let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
         BfsToAny::new([b]).visit(&graph, missing),
@@ -216,7 +216,7 @@ fn bfs_to_any_reports_missing_start_vertex() {
 fn bfs_to_any_reports_missing_target_vertex() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     let a = graph.add_vertex("a");
-    let missing = oxygraph::VertexId::new(1);
+    let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
         BfsToAny::new([missing]).visit(&graph, a),
@@ -261,7 +261,7 @@ fn dijkstra_returns_none_for_unreachable_target() {
 fn dijkstra_reports_missing_start_vertex() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let b = graph.add_vertex("b");
-    let missing = oxygraph::VertexId::new(1);
+    let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
         Dijkstra::new(b).visit(&graph, missing),
@@ -273,7 +273,7 @@ fn dijkstra_reports_missing_start_vertex() {
 fn dijkstra_reports_missing_target_vertex() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
-    let missing = oxygraph::VertexId::new(1);
+    let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
         Dijkstra::new(missing).visit(&graph, a),
@@ -349,7 +349,7 @@ fn multi_source_bfs_omits_unreached_vertices() {
 fn multi_source_bfs_reports_missing_source_vertex() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     let a = graph.add_vertex("a");
-    let missing = oxygraph::VertexId::new(5);
+    let missing = bergraph::VertexId::new(5);
 
     assert_eq!(
         MultiSourceBfs.visit(&graph, [a, missing]),
@@ -427,7 +427,7 @@ fn multi_source_dijkstra_omits_unreached_vertices() {
 fn multi_source_dijkstra_reports_missing_source_vertex() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
-    let missing = oxygraph::VertexId::new(5);
+    let missing = bergraph::VertexId::new(5);
 
     assert_eq!(
         MultiSourceDijkstra.visit(&graph, [a, missing]),
@@ -523,8 +523,8 @@ fn scc_groups_a_self_loop_into_its_own_component() {
 /// bridge, and its two endpoints are the only articulation points.
 #[allow(clippy::type_complexity)]
 fn two_triangles_joined_by_a_bridge() -> (
-    oxygraph::Graph<&'static str, AdjList<(), u32>>,
-    [oxygraph::VertexId<u32>; 6],
+    bergraph::Graph<&'static str, AdjList<(), u32>>,
+    [bergraph::VertexId<u32>; 6],
 ) {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     let a = graph.add_vertex("a");
