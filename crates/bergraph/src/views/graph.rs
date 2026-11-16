@@ -1,21 +1,23 @@
 use crate::{
     Graph, VertexId,
-    edges::GraphEdgeStorage,
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
-    views::{EdgeFilter, VertexFilter, edges::EdgeFilteredView},
+    views::edges::EdgeFilteredView,
 };
 
-pub struct GraphFilteredView<'a, V, S: GraphEdgeStorage> {
+/// Graph seen through a vertex predicate `FV` and an edge predicate `FE`; `Send`/`Sync` whenever
+/// the predicates and the graph are.
+pub struct GraphFilteredView<'a, V, S: GraphEdgeStorage, FV, FE> {
     graph: &'a Graph<V, S>,
-    edges: EdgeFilteredView<'a, V, S>,
+    edges: EdgeFilteredView<'a, V, S, FV, FE>,
 }
 
-impl<'a, V: 'static, S: GraphEdgeStorage> GraphFilteredView<'a, V, S> {
-    pub fn new(
-        graph: &'a Graph<V, S>,
-        filter_vertices: Option<VertexFilter<'a, V>>,
-        filter_edges: Option<EdgeFilter<'a, S::Edge>>,
-    ) -> GraphFilteredView<'a, V, S> {
+impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphFilteredView<'a, V, S, FV, FE>
+where
+    FV: Fn(&V) -> bool,
+    FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
+{
+    pub fn new(graph: &'a Graph<V, S>, filter_vertices: FV, filter_edges: FE) -> Self {
         Self {
             graph,
             edges: EdgeFilteredView::new(
@@ -28,8 +30,11 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphFilteredView<'a, V, S> {
     }
 }
 
-impl<'a, V: 'static, S: GraphEdgeStorage> GraphView<V, EdgeFilteredView<'a, V, S>>
-    for GraphFilteredView<'a, V, S>
+impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphView<V, EdgeFilteredView<'a, V, S, FV, FE>>
+    for GraphFilteredView<'a, V, S, FV, FE>
+where
+    FV: Fn(&V) -> bool,
+    FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     fn vertex(&self, id: VertexId<S::Id>) -> Option<&V> {
         self.graph
@@ -45,7 +50,7 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphView<V, EdgeFilteredView<'a, V, S
         self.len() == 0
     }
 
-    fn edges(&self) -> &EdgeFilteredView<'a, V, S> {
+    fn edges(&self) -> &EdgeFilteredView<'a, V, S, FV, FE> {
         &self.edges
     }
 

@@ -4,9 +4,9 @@
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::GraphEdgeStorage,
+    edges::{EdgeView, GraphEdgeStorage},
     vertices::VertexId,
-    views::{EdgeFilter, GraphFilteredView, VertexFilter},
+    views::GraphFilteredView,
 };
 
 pub trait GraphView<V: 'static, S: GraphEdgeStorage> {
@@ -51,20 +51,35 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
         self.vertices.get_mut(id.id())
     }
 
-    pub fn view(&self) -> GraphFilteredView<'_, V, S>
+    /// View of the whole graph, with no vertex or edge filtered out.
+    // The closure types can't be named, so no type alias can shorten this signature.
+    #[allow(clippy::type_complexity)]
+    pub fn view(
+        &self,
+    ) -> GraphFilteredView<
+        '_,
+        V,
+        S,
+        impl Fn(&V) -> bool,
+        impl Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
+    >
     where
         V: 'static,
     {
-        self.filtered_view(None, None)
+        self.filtered_view(|_| true, |_| true)
     }
 
-    pub fn filtered_view<'a>(
-        &'a self,
-        filter_vertices: Option<VertexFilter<'a, V>>,
-        filter_edges: Option<EdgeFilter<'a, S::Edge>>,
-    ) -> GraphFilteredView<'a, V, S>
+    /// View of the vertices accepted by `filter_vertices` and the edges accepted by
+    /// `filter_edges` between them.
+    pub fn filtered_view<FV, FE>(
+        &self,
+        filter_vertices: FV,
+        filter_edges: FE,
+    ) -> GraphFilteredView<'_, V, S, FV, FE>
     where
         V: 'static,
+        FV: Fn(&V) -> bool,
+        FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
     {
         GraphFilteredView::new(self, filter_vertices, filter_edges)
     }

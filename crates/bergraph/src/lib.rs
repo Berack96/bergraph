@@ -22,7 +22,7 @@ pub mod graph_edges {
 pub mod graph_view {
     pub use super::edges::EdgeView;
     pub use super::graph::GraphView;
-    pub use super::views::{EdgeFilter, EdgeFilteredView, GraphFilteredView, VertexFilter};
+    pub use super::views::{EdgeFilteredView, GraphFilteredView};
 }
 
 pub mod graph_visit {
