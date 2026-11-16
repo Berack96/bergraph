@@ -4,9 +4,9 @@ use bergraph::graph_view::GraphView;
 use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
-    DijkstraReached, Eccentricity, EulerianTrail, MaxFlow, MinimumSpanningTree, MultiSourceBfs,
-    MultiSourceDijkstra, Reached, StronglyConnectedComponents, TopologicalSort, TransitiveClosure,
-    ViewVisit, VisitError,
+    DijkstraReached, Eccentricity, EulerianTrail, Flooded, MaxFlow, MinimumSpanningTree,
+    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, StronglyConnectedComponents,
+    TopologicalSort, TransitiveClosure, ViewVisit, VisitError,
 };
 
 struct NoopVisitor;
@@ -1435,5 +1435,42 @@ fn multi_source_dijkstra_ignores_duplicate_sources() {
                 }
             )
         ]
+    );
+}
+
+#[test]
+fn priority_flood_raises_a_pit_to_the_level_it_is_flooded_from() {
+    let mut graph = GraphBuilder::<f64, ()>::new().build();
+    let s = graph.add_vertex(0.0);
+    let x = graph.add_vertex(3.0);
+    let y = graph.add_vertex(1.0);
+    let pit = graph.add_vertex(0.0);
+    graph.edges_mut().add_edge(s, x, ());
+    graph.edges_mut().add_edge(s, y, ());
+    graph.edges_mut().add_edge(y, pit, ());
+
+    let flooding = PriorityFlood
+        .visit(&graph, [s], |id| *graph.vertex(id).unwrap())
+        .unwrap();
+
+    let flooded = |level, from| Flooded { level, from };
+    assert_eq!(
+        flooding,
+        vec![
+            (s, flooded(0.0, None)),
+            (y, flooded(1.0, Some(s))),
+            (pit, flooded(1.0, Some(y))),
+            (x, flooded(3.0, Some(s))),
+        ]
+    );
+}
+
+#[test]
+fn priority_flood_reports_missing_seed_vertex() {
+    let graph = GraphBuilder::<f64, ()>::new().build();
+
+    assert_eq!(
+        PriorityFlood.visit(&graph, [bergraph::VertexId::new(0)], |_| 0.0),
+        Err(VisitError::VertexNotFound)
     );
 }
