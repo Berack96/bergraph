@@ -2,7 +2,7 @@
 
 use bergraph::{
     Graph, GraphBuilder, VertexId,
-    graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirected},
+    graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirectedMut},
     graph_view::GraphView,
 };
 use serde::{Deserialize, Serialize};

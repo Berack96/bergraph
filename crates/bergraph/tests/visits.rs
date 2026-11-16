@@ -1,5 +1,5 @@
 use bergraph::GraphBuilder;
-use bergraph::graph_edges::{AdjList, GraphEdgeStorage, GraphEdgeStorageDirected, Weighted};
+use bergraph::graph_edges::{AdjList, GraphEdgeStorageDirectedMut, GraphEdgeStorageMut, Weighted};
 use bergraph::graph_view::GraphView;
 use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,

@@ -43,7 +43,7 @@ fn creates_edge_views() {
     let data = String::from("edge");
     let from = VertexId::<u32>::new(1);
     let to = VertexId::<u32>::new(2);
-    let edge = EdgeView::new(from, to, &data);
+    let edge = EdgeView::new(from, to, &data, ());
 
     assert_eq!(edge.from, from);
     assert_eq!(edge.to, to);

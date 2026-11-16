@@ -2,7 +2,10 @@
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::{Edge, EdgeSimple, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},
+    edges::{
+        Edge, EdgeSimple, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected,
+        GraphEdgeStorageDirectedMut, GraphEdgeStorageMut, MaybeSerde,
+    },
     vertices::{UnsignedId, VertexId},
 };
 
@@ -37,6 +40,7 @@ impl<E: 'static, I: UnsignedId> Default for AdjList<E, I> {
 impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjList<E, I> {
     type Edge = E;
     type Id = I;
+    type EdgeKey = ();
 
     fn of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         let vert_id = id.id();
@@ -44,7 +48,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             .get(vert_id)
             .into_iter()
             .flatten()
-            .map(move |edge| EdgeView::new(id, edge.to, &edge.data))
+            .map(move |edge| EdgeView::new(id, edge.to, &edge.data, ()))
     }
 
     fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
@@ -52,10 +56,33 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             let from_vertex = VertexId::new(from_id);
             edges
                 .iter()
-                .map(move |edge| EdgeView::new(from_vertex, edge.to, &edge.data))
+                .map(move |edge| EdgeView::new(from_vertex, edge.to, &edge.data, ()))
         })
     }
 
+    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
+        self.edges
+            .get(from.id())
+            .and_then(|edges| edges.iter().find(|edge| edge.to == *to))
+            .map(|edge| &edge.data)
+    }
+
+    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
+        self.edges
+            .get(from.id())
+            .is_some_and(|edges| edges.iter().any(|edge| edge.to == *to))
+    }
+
+    fn count(&self) -> usize {
+        self.edge_count
+    }
+
+    fn count_of(&self, id: VertexId<I>) -> usize {
+        self.edges.get(id.id()).map_or(0, |edges| edges.len())
+    }
+}
+
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageMut for AdjList<E, I> {
     fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
     where
         E: Clone,
@@ -76,23 +103,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         removed
     }
 
-    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
-        self.edges
-            .get(from.id())
-            .and_then(|edges| edges.iter().find(|edge| edge.to == *to))
-            .map(|edge| &edge.data)
-    }
-
-    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
-        self.edges
-            .get(from.id())
-            .is_some_and(|edges| edges.iter().any(|edge| edge.to == *to))
-    }
-
-    fn count(&self) -> usize {
-        self.edge_count
-    }
-
     fn with_capacity(capacity: usize) -> Self {
         Self {
             edges: Vec::with_capacity(capacity),
@@ -106,10 +116,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             adj_list.add_edge_directed(edge.from, edge.to, edge.data);
         }
         adj_list
-    }
-
-    fn count_of(&self, id: VertexId<I>) -> usize {
-        self.edges.get(id.id()).map_or(0, |edges| edges.len())
     }
 
     fn add_all(&mut self, from: VertexId<I>, edges: impl IntoIterator<Item = (VertexId<I>, E)>) {
@@ -146,7 +152,11 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
     fn count_outgoing(&self, id: VertexId<I>) -> usize {
         self.count_of(id)
     }
+}
 
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirectedMut
+    for AdjList<E, I>
+{
     fn add_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>, data: E) {
         let from = from.id();
         if from + 1 > self.edges.len() {

@@ -2,7 +2,10 @@
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::{Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},
+    edges::{
+        Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, GraphEdgeStorageDirectedMut,
+        GraphEdgeStorageMut, MaybeSerde,
+    },
     vertices::{UnsignedId, VertexId},
 };
 
@@ -11,10 +14,10 @@ use crate::{
 /// `Vec` indirection, so [`all`](GraphEdgeStorage::all) is a single linear scan with
 /// good cache locality — the format's whole point.
 ///
-/// The trade-off is mutation: [`with_edges`](GraphEdgeStorage::with_edges) builds the packed
+/// The trade-off is mutation: [`with_edges`](GraphEdgeStorageMut::with_edges) builds the packed
 /// layout in one O(V + E) counting sort, but a single
-/// [`add_edge_directed`](GraphEdgeStorageDirected::add_edge_directed) or
-/// [`remove_edge_directed`](GraphEdgeStorageDirected::remove_edge_directed) call is O(V + E),
+/// [`add_edge_directed`](GraphEdgeStorageDirectedMut::add_edge_directed) or
+/// [`remove_edge_directed`](GraphEdgeStorageDirectedMut::remove_edge_directed) call is O(V + E),
 /// since it has to shift the packed arrays. CSR fits graphs that are mostly built once (or in
 /// batches) and then read many times, not ones mutated edge-by-edge.
 #[cfg_attr(feature = "serde", serde_feature)]
@@ -67,10 +70,11 @@ impl<E: 'static, I: UnsignedId> Default for AdjCsr<E, I> {
 impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjCsr<E, I> {
     type Edge = E;
     type Id = I;
+    type EdgeKey = ();
 
     fn of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         self.range_of(id.id())
-            .map(move |i| EdgeView::new(id, self.targets[i], &self.data[i]))
+            .map(move |i| EdgeView::new(id, self.targets[i], &self.data[i], ()))
     }
 
     fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
@@ -80,10 +84,30 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             .flat_map(move |(from, w)| {
                 let from_vertex = VertexId::new(from);
                 (w[0]..w[1])
-                    .map(move |i| EdgeView::new(from_vertex, self.targets[i], &self.data[i]))
+                    .map(move |i| EdgeView::new(from_vertex, self.targets[i], &self.data[i], ()))
             })
     }
 
+    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
+        self.range_of(from.id())
+            .find(|&i| self.targets[i] == *to)
+            .map(|i| &self.data[i])
+    }
+
+    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
+        self.get(from, to).is_some()
+    }
+
+    fn count(&self) -> usize {
+        self.targets.len()
+    }
+
+    fn count_of(&self, id: VertexId<I>) -> usize {
+        self.range_of(id.id()).len()
+    }
+}
+
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageMut for AdjCsr<E, I> {
     fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
     where
         E: Clone,
@@ -102,20 +126,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             self.remove_edge_directed(to, from);
         }
         removed
-    }
-
-    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
-        self.range_of(from.id())
-            .find(|&i| self.targets[i] == *to)
-            .map(|i| &self.data[i])
-    }
-
-    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
-        self.get(from, to).is_some()
-    }
-
-    fn count(&self) -> usize {
-        self.targets.len()
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -163,10 +173,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         }
     }
 
-    fn count_of(&self, id: VertexId<I>) -> usize {
-        self.range_of(id.id()).len()
-    }
-
     fn add_all(&mut self, from: VertexId<I>, edges: impl IntoIterator<Item = (VertexId<I>, E)>) {
         for (to, data) in edges {
             self.add_edge_directed(from, to, data);
@@ -201,7 +207,11 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
     fn count_outgoing(&self, id: VertexId<I>) -> usize {
         self.count_of(id)
     }
+}
 
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirectedMut
+    for AdjCsr<E, I>
+{
     fn add_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>, data: E) {
         let from = from.id();
         self.ensure_vertex(from);

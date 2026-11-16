@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    edges::{AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, MaybeSerde},
+    edges::{AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorageMut, MaybeSerde},
     graph::Graph,
     vertices::UnsignedId,
 };
@@ -46,7 +46,7 @@ impl<V, E: MaybeSerde> Default for GraphBuilder<V, E> {
 impl<V, E: MaybeSerde, I, S> GraphBuilder<V, E, I, S>
 where
     I: UnsignedId + MaybeSerde,
-    S: GraphEdgeStorage<Edge = E, Id = I>,
+    S: GraphEdgeStorageMut<Edge = E, Id = I>,
 {
     // Switch from the dynamic adjacency list to the fixed-capacity one, sized by a const generic.
     pub fn into_adjlist_fixed_max_degree<const N: usize>(

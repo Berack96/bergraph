@@ -1,7 +1,8 @@
 use bergraph::{
     VertexId,
     graph_edges::{
-        AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirected,
+        AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirectedMut,
+        GraphEdgeStorageMut,
     },
 };
 
@@ -35,7 +36,7 @@ fn build_matrix() -> AdjMatrix<(), u32> {
     storage
 }
 
-fn add_edges<S: GraphEdgeStorageDirected<Edge = (), Id = u32>>(storage: &mut S) {
+fn add_edges<S: GraphEdgeStorageDirectedMut<Edge = (), Id = u32>>(storage: &mut S) {
     for from in 0..VERTICES {
         for offset in 0..EDGES_PER_VERTEX {
             let to = (from + offset + 1) % VERTICES;

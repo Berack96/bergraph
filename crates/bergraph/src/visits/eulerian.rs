@@ -1,9 +1,9 @@
 //! Eulerian trail, bound to directed graphs: Hierholzer's algorithm walks the directed arcs as
 //! stored, via [`GraphEdgeStorageDirected::children_of`]/[`parents_of`](GraphEdgeStorageDirected::parents_of),
 //! treating every stored arc as one distinct edge, so an undirected edge added via
-//! [`add_edge`](crate::edges::GraphEdgeStorage::add_edge) (stored as a mirrored pair) is walked
+//! [`add_edge`](crate::edges::GraphEdgeStorageMut::add_edge) (stored as a mirrored pair) is walked
 //! once each way; build the graph one direction at a time via
-//! [`add_edge_directed`](GraphEdgeStorageDirected::add_edge_directed) instead for a trail over
+//! [`add_edge_directed`](crate::edges::GraphEdgeStorageDirectedMut::add_edge_directed) instead for a trail over
 //! each undirected edge exactly once.
 
 use std::collections::VecDeque;
