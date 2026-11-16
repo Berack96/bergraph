@@ -9,8 +9,8 @@ use crate::{
 };
 
 /// Shortest path from a start vertex to `target`, guided by `heuristic`: an estimate of the
-/// remaining distance from a vertex to `target`. `heuristic` must never overestimate the true
-/// remaining distance (be admissible), or the returned path may not be the shortest.
+/// remaining distance from a vertex to `target`. `heuristic` must be pure and never overestimate
+/// the true remaining distance (be admissible), or the returned path may not be the shortest.
 pub struct AStar<I: UnsignedId, H> {
     target: VertexId<I>,
     heuristic: H,
@@ -58,6 +58,8 @@ where
                 .get(vertex)
                 .expect("queued vertices are always reached");
             // Stale entry: a shorter path to `vertex` was queued since, at a lower priority.
+            // shortcut: recomputes the heuristic on every pop; keep the distance in the heap
+            // entry if heuristics get expensive.
             if priority > distance + (self.heuristic)(vertex) {
                 continue;
             }

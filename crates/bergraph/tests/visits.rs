@@ -1512,4 +1512,33 @@ fn search_buffers_reused_across_searches_give_the_same_results() {
         Dijkstra::new(a).visit_with(&mut buffers, &graph, c, cost),
         Ok(None)
     );
+    let missing = bergraph::VertexId::new(9);
+    let failed = MultiSourceDijkstra::new(f64::INFINITY).visit_with(
+        &mut buffers,
+        &graph,
+        [b, missing],
+        cost,
+    );
+    assert_eq!(failed, Err(VisitError::VertexNotFound));
+    assert_eq!(
+        Dijkstra::new(a).visit_with(&mut buffers, &graph, b, cost),
+        Ok(None)
+    );
+}
+
+#[test]
+fn a_star_skips_a_stale_queue_entry() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge_directed(a, b, Km(5.0));
+    graph.edges_mut().add_edge_directed(a, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(c, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, d, Km(10.0));
+
+    // b is queued at 5 then at 2: the entry at 5 pops before d and must be skipped.
+    let shortest = AStar::new(d, |_| 0.0).visit(&graph, a, |edge| edge.data.0);
+    assert_eq!(shortest, Ok(Some((vec![a, c, b, d], 12.0))));
 }
