@@ -75,6 +75,18 @@ fn has_no_edges_on_a_vertex_outside_the_graph() {
 
     assert_eq!(csr.of(v(1)).count(), 0);
     assert_eq!(csr.count_of(v(1)), 0);
+    assert!(!csr.has_edge(&v(1), &v(0)));
+}
+
+#[test]
+fn lists_all_edges_in_edge_id_order() {
+    let (csr, _) =
+        AdjCsr::<u32, u32>::undirected(3, &[(v(2), v(0)), (v(1), v(0)), (v(1), v(1))]).unwrap();
+
+    let keys: Vec<_> = csr.all().map(|edge| edge.key.id()).collect();
+    assert_eq!(keys, (0..csr.count()).collect::<Vec<_>>());
+    let parents: Vec<_> = csr.parents_of(v(0)).map(|edge| edge.from.id()).collect();
+    assert_eq!(parents, vec![1, 2]);
 }
 
 #[test]

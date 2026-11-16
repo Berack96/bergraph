@@ -55,12 +55,8 @@ pub trait GraphEdgeStorage {
     fn has_edge(&self, from: &VertexId<Self::Id>, to: &VertexId<Self::Id>) -> bool;
 }
 
-/// Write side of an edge storage. Every write here is undirected: `add_edge`/`remove_edge`
-/// always act on both endpoints, so generic code written against this trait alone can never
-/// end up with an asymmetric edge by accident — only
-/// [`GraphEdgeStorageDirectedMut::add_edge_directed`] can create one, on a storage that opts
-/// into it. `with_edges`/`add_all`/`remove_all` are the literal, non-mirrored bulk-load
-/// counterparts (one arc per tuple, exactly as given).
+/// Write side of an edge storage: `add_edge`/`remove_edge` act on both endpoints, while the bulk
+/// `with_edges`/`add_all`/`remove_all` store one arc per tuple, exactly as given.
 pub trait GraphEdgeStorageMut: GraphEdgeStorage {
     fn with_capacity(capacity: usize) -> Self;
     fn with_edges(edges: Vec<Edge<Self::Edge, Self::Id>>) -> Self;
