@@ -1,22 +1,26 @@
 use crate::{
     VertexId,
     edges::{EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected},
-    views::{EdgeFilter, VertexFilter},
 };
 
-pub struct EdgeFilteredView<'a, V, S: GraphEdgeStorage> {
+/// Edge storage seen through a vertex predicate `FV` and an edge predicate `FE`.
+pub struct EdgeFilteredView<'a, V, S: GraphEdgeStorage, FV, FE> {
     edge_storage: &'a S,
-    filter_edges: Option<EdgeFilter<'a, S::Edge>>,
+    filter_edges: FE,
     vertices: &'a [V],
-    filter_vertices: Option<VertexFilter<'a, V>>,
+    filter_vertices: FV,
 }
 
-impl<'a, V: 'static, S: GraphEdgeStorage> EdgeFilteredView<'a, V, S> {
+impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> EdgeFilteredView<'a, V, S, FV, FE>
+where
+    FV: Fn(&V) -> bool,
+    FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
+{
     pub(crate) fn new(
         edge_storage: &'a S,
-        filter_edges: Option<EdgeFilter<'a, S::Edge>>,
+        filter_edges: FE,
         vertices: &'a [V],
-        filter_vertices: Option<VertexFilter<'a, V>>,
+        filter_vertices: FV,
     ) -> Self {
         Self {
             edge_storage,
@@ -30,23 +34,22 @@ impl<'a, V: 'static, S: GraphEdgeStorage> EdgeFilteredView<'a, V, S> {
     /// `filter_vertices`: an edge reaching outside this is no more "in the view" than one
     /// `filter_edges` rejects.
     pub(crate) fn vertex_in_view(&self, id: VertexId<S::Id>) -> bool {
-        self.vertices.get(id.id()).is_some_and(|v| {
-            self.filter_vertices
-                .as_deref()
-                .is_none_or(|filter| filter(v))
-        })
+        self.vertices
+            .get(id.id())
+            .is_some_and(|v| (self.filter_vertices)(v))
     }
 
     fn edge_in_view(&self, edge: &EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool {
-        self.filter_edges
-            .as_deref()
-            .is_none_or(|filter| filter(edge.data))
-            && self.vertex_in_view(edge.from)
-            && self.vertex_in_view(edge.to)
+        (self.filter_edges)(edge) && self.vertex_in_view(edge.from) && self.vertex_in_view(edge.to)
     }
 }
 
-impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<'a, V, S> {
+impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphEdgeStorage
+    for EdgeFilteredView<'a, V, S, FV, FE>
+where
+    FV: Fn(&V) -> bool,
+    FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
+{
     type Edge = S::Edge;
     type Id = S::Id;
     type EdgeKey = S::EdgeKey;
@@ -75,14 +78,11 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
     }
 
     fn get(&self, from: &VertexId<S::Id>, to: &VertexId<S::Id>) -> Option<&S::Edge> {
-        if !self.vertex_in_view(*from) || !self.vertex_in_view(*to) {
-            return None;
-        }
-        self.edge_storage.get(from, to).filter(|data| {
-            self.filter_edges
-                .as_deref()
-                .is_none_or(|filter| filter(data))
-        })
+        // shortcut: scans `of(from)` (O(V) on `AdjMatrix`) to give the edge filter its key; switch
+        // to a keyed `get` on the storage if filtered lookups get hot.
+        self.of(*from)
+            .find(|edge| edge.to == *to)
+            .map(|edge| edge.data)
     }
 
     fn has_edge(&self, from: &VertexId<S::Id>, to: &VertexId<S::Id>) -> bool {
@@ -90,8 +90,11 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
     }
 }
 
-impl<'a, V: 'static, S: GraphEdgeStorageDirected> GraphEdgeStorageDirected
-    for EdgeFilteredView<'a, V, S>
+impl<'a, V: 'static, S: GraphEdgeStorageDirected, FV, FE> GraphEdgeStorageDirected
+    for EdgeFilteredView<'a, V, S, FV, FE>
+where
+    FV: Fn(&V) -> bool,
+    FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     fn children_of(
         &self,

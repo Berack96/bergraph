@@ -24,7 +24,7 @@ struct HeapEntry<I: UnsignedId> {
 
 impl<I: UnsignedId> PartialEq for HeapEntry<I> {
     fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority
+        self.cmp(other) == Ordering::Equal
     }
 }
 impl<I: UnsignedId> Eq for HeapEntry<I> {}
@@ -35,11 +35,11 @@ impl<I: UnsignedId> PartialOrd for HeapEntry<I> {
 }
 impl<I: UnsignedId> Ord for HeapEntry<I> {
     fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed: BinaryHeap is a max-heap, A* needs the smallest priority first.
+        // Reversed: BinaryHeap is a max-heap, A* needs the smallest priority first, ties on id.
         other
             .priority
-            .partial_cmp(&self.priority)
-            .unwrap_or(Ordering::Equal)
+            .total_cmp(&self.priority)
+            .then_with(|| other.vertex.cmp(&self.vertex))
     }
 }
 

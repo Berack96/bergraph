@@ -33,7 +33,7 @@ impl MinimumSpanningTree {
             .all()
             .map(|edge| (edge.from, edge.to, edge.data.weight()))
             .collect();
-        edges.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+        edges.sort_by(|a, b| a.2.total_cmp(&b.2));
 
         let mut parent: VertexMarks<Option<VertexId<S::Id>>> = VertexMarks::new(None);
         let mut mst = Vec::new();

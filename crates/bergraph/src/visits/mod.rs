@@ -25,6 +25,7 @@ mod max_flow;
 mod mst;
 mod multi_source_bfs;
 mod multi_source_dijkstra;
+mod priority_flood;
 mod scc;
 mod simple_paths;
 mod topological_sort;
@@ -48,10 +49,13 @@ pub use max_flow::{MaxFlow, MinCutEdges};
 pub use mst::{MinimumSpanningTree, MstEdges};
 pub use multi_source_bfs::{MultiSourceBfs, Reached, Reaching};
 pub use multi_source_dijkstra::{DijkstraReached, DijkstraReaching, MultiSourceDijkstra};
+pub use priority_flood::{Flooded, Flooding, PriorityFlood};
 pub use scc::{SccComponents, StronglyConnectedComponents};
 pub use simple_paths::AllSimplePaths;
 pub use topological_sort::TopologicalSort;
 pub use transitive_closure::{Reachability, TransitiveClosure};
+
+use std::cmp::Ordering;
 
 use crate::{
     edges::GraphEdgeStorage,
@@ -119,6 +123,34 @@ impl<M: Clone> VertexMarks<M> {
             self.marks.resize(idx + 1, self.default.clone());
         }
         &mut self.marks[idx]
+    }
+}
+
+/// Min-heap entry of the priority searches: smallest `priority` first (by `total_cmp`), ties
+/// broken by the lower vertex id, so the pop order never depends on the heap's internals.
+pub(crate) struct MinEntry<I: UnsignedId> {
+    pub(crate) priority: f64,
+    pub(crate) vertex: VertexId<I>,
+}
+
+impl<I: UnsignedId> PartialEq for MinEntry<I> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+impl<I: UnsignedId> Eq for MinEntry<I> {}
+impl<I: UnsignedId> PartialOrd for MinEntry<I> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<I: UnsignedId> Ord for MinEntry<I> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Reversed: BinaryHeap is a max-heap.
+        other
+            .priority
+            .total_cmp(&self.priority)
+            .then_with(|| other.vertex.cmp(&self.vertex))
     }
 }
 

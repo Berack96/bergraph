@@ -4,9 +4,9 @@ use bergraph::graph_view::GraphView;
 use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
-    DijkstraReached, Eccentricity, EulerianTrail, MaxFlow, MinimumSpanningTree, MultiSourceBfs,
-    MultiSourceDijkstra, Reached, StronglyConnectedComponents, TopologicalSort, TransitiveClosure,
-    ViewVisit, VisitError,
+    DijkstraReached, Eccentricity, EulerianTrail, Flooded, MaxFlow, MinimumSpanningTree,
+    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, StronglyConnectedComponents,
+    TopologicalSort, TransitiveClosure, ViewVisit, VisitError,
 };
 
 struct NoopVisitor;
@@ -126,7 +126,7 @@ fn dfs_handles_self_loop() {
 fn bfs_reports_missing_start_vertex_when_excluded_by_a_filter() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     let a = graph.add_vertex("a");
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "a")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "a", |_| true);
 
     assert_eq!(Bfs.visit(&view, a), Err(VisitError::VertexNotFound));
 }
@@ -139,7 +139,7 @@ fn bfs_does_not_reach_a_vertex_excluded_by_the_filter() {
     let x = graph.add_vertex("x");
     graph.edges_mut().add_edge_directed(a, b, ());
     graph.edges_mut().add_edge_directed(a, x, ());
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "x")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "x", |_| true);
 
     let order = Bfs.visit(&view, a).unwrap();
 
@@ -243,9 +243,31 @@ fn dijkstra_finds_shortest_path() {
     graph.edges_mut().add_edge_directed(a, c, Km(1.0));
     graph.edges_mut().add_edge_directed(c, b, Km(1.0));
 
-    let (path, total) = Dijkstra::new(b).visit(&graph, a).unwrap().unwrap();
+    let (path, total) = Dijkstra::new(b)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
     assert_eq!(path, vec![a, c, b]);
     assert_eq!(total, 2.0);
+}
+
+#[test]
+fn dijkstra_breaks_distance_ties_on_the_lower_vertex_id() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge_directed(a, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(c, d, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, d, Km(1.0));
+
+    let (path, _) = Dijkstra::new(d)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
+    assert_eq!(path, vec![a, b, d]);
 }
 
 #[test]
@@ -254,7 +276,12 @@ fn dijkstra_returns_none_for_unreachable_target() {
     let a = graph.add_vertex("a");
     let b = graph.add_vertex("b");
 
-    assert_eq!(Dijkstra::new(b).visit(&graph, a).unwrap(), None);
+    assert_eq!(
+        Dijkstra::new(b)
+            .visit(&graph, a, |edge| edge.data.0)
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -264,7 +291,7 @@ fn dijkstra_reports_missing_start_vertex() {
     let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
-        Dijkstra::new(b).visit(&graph, missing),
+        Dijkstra::new(b).visit(&graph, missing, |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -276,7 +303,7 @@ fn dijkstra_reports_missing_target_vertex() {
     let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
-        Dijkstra::new(missing).visit(&graph, a),
+        Dijkstra::new(missing).visit(&graph, a, |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -369,7 +396,9 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
     graph.edges_mut().add_edge_directed(s1, y, Km(2.0));
     graph.edges_mut().add_edge_directed(s2, y, Km(2.0));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [s1, s2]).unwrap();
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
+        .visit(&graph, [s1, s2], |edge| edge.data.0)
+        .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
 
     assert_eq!(
@@ -394,7 +423,7 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
             source: s2
         })
     );
-    // y is equidistant from both sources: ties are broken by input order, s1 first.
+    // y is equidistant from both sources: the tie goes to s1, the lower id finalized first.
     assert_eq!(
         of(y),
         Some(DijkstraReached {
@@ -405,12 +434,34 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
 }
 
 #[test]
+fn multi_source_dijkstra_stops_beyond_the_maximum_distance() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, c, Km(1.0));
+
+    let reached = MultiSourceDijkstra::new(1.0)
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
+    let ids: Vec<_> = reached.iter().map(|(id, _)| *id).collect();
+    assert_eq!(ids, vec![a, b]);
+    let sources_only = MultiSourceDijkstra::new(-1.0)
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
+    assert_eq!(sources_only.len(), 1);
+}
+
+#[test]
 fn multi_source_dijkstra_omits_unreached_vertices() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
     let _isolated = graph.add_vertex("isolated");
 
-    let reached = MultiSourceDijkstra.visit(&graph, [a]).unwrap();
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
     assert_eq!(
         reached,
         vec![(
@@ -430,7 +481,7 @@ fn multi_source_dijkstra_reports_missing_source_vertex() {
     let missing = bergraph::VertexId::new(5);
 
     assert_eq!(
-        MultiSourceDijkstra.visit(&graph, [a, missing]),
+        MultiSourceDijkstra::new(f64::INFINITY).visit(&graph, [a, missing], |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -451,6 +502,27 @@ fn connected_components_groups_vertices_reachable_from_one_another() {
     let components = ConnectedComponents.visit(&graph);
 
     assert_eq!(components, vec![vec![a, b, c], vec![d, e], vec![f]]);
+}
+
+#[test]
+fn connected_components_labels_each_vertex_with_the_first_of_its_component() {
+    let mut graph = GraphBuilder::<&str, ()>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge(c, a, ());
+    graph.edges_mut().add_edge(b, d, ());
+
+    assert_eq!(
+        ConnectedComponents.labels(&graph),
+        vec![Some(a), Some(b), Some(a), Some(b)]
+    );
+    let view = graph.filtered_view(|v: &&str| *v != "b", |_| true);
+    assert_eq!(
+        ConnectedComponents.labels(&view),
+        vec![Some(a), None, Some(a), Some(d)]
+    );
 }
 
 #[test]
@@ -809,7 +881,7 @@ fn topological_sort_ignores_an_edge_from_a_vertex_excluded_by_the_filter() {
     let w = graph.add_vertex("w");
     let x = graph.add_vertex("x");
     graph.edges_mut().add_edge_directed(w, x, ());
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "w")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "w", |_| true);
 
     // w is excluded from the view, so its edge to x doesn't count: x has no in-view
     // predecessor and is free to sort on its own.
@@ -894,7 +966,7 @@ fn max_flow_min_cut_excludes_an_edge_to_a_vertex_outside_the_filtered_view() {
     graph.edges_mut().add_edge_directed(s, a, Km(5.0));
     graph.edges_mut().add_edge_directed(a, t, Km(3.0));
     graph.edges_mut().add_edge_directed(a, x, Km(10.0));
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "x")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "x", |_| true);
 
     let (flow, min_cut) = MaxFlow::new(t).visit(&view, s).unwrap();
 
@@ -961,7 +1033,7 @@ fn eulerian_trail_ignores_edges_touching_a_vertex_excluded_by_the_filter() {
     let x = graph.add_vertex("x");
     graph.edges_mut().add_edge_directed(a, b, ());
     graph.edges_mut().add_edge_directed(a, x, ());
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "x")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "x", |_| true);
 
     // x is excluded from the view, so a's edge to it doesn't count: the view exposes only
     // the balanced a-b edge, giving a one-edge trail.
@@ -1240,7 +1312,7 @@ fn bellman_ford_does_not_report_a_false_negative_cycle_on_a_filtered_view() {
     graph.edges_mut().add_edge_directed(s, m1, Km(1.0));
     graph.edges_mut().add_edge_directed(m1, m2, Km(1.0));
     graph.edges_mut().add_edge_directed(m2, t, Km(1.0));
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v == "s" || *v == "t")), None);
+    let view = graph.filtered_view(|v: &&str| *v == "s" || *v == "t", |_| true);
 
     // m1 and m2 are vertex-filtered out of the view, so their edges don't relax and s can't
     // reach t: the bound must still be settled without a spurious negative-cycle report.
@@ -1300,7 +1372,7 @@ fn minimum_spanning_tree_handles_a_filtered_view_with_gaps_in_vertex_ids() {
     let e = graph.add_vertex("e");
     graph.edges_mut().add_edge(a, c, Km(1.0));
     graph.edges_mut().add_edge(d, e, Km(2.0));
-    let view = graph.filtered_view(Some(Box::new(|v: &&str| *v != "b")), None);
+    let view = graph.filtered_view(|v: &&str| *v != "b", |_| true);
 
     // The view's own vertex count (4) is smaller than e's raw id (4), since b is excluded:
     // a union-find sized to `view.len()` would index out of bounds on e.
@@ -1317,7 +1389,9 @@ fn multi_source_dijkstra_keeps_a_source_attributed_to_itself_when_reachable_more
     let s2 = graph.add_vertex("s2");
     graph.edges_mut().add_edge_directed(s2, s1, Km(0.001));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [s1, s2]).unwrap();
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
+        .visit(&graph, [s1, s2], |edge| edge.data.0)
+        .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
 
     assert_eq!(
@@ -1343,7 +1417,9 @@ fn multi_source_dijkstra_ignores_duplicate_sources() {
     let b = graph.add_vertex("b");
     graph.edges_mut().add_edge_directed(a, b, Km(1.0));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [a, a]).unwrap();
+    let reached = MultiSourceDijkstra::new(f64::INFINITY)
+        .visit(&graph, [a, a], |edge| edge.data.0)
+        .unwrap();
 
     assert_eq!(
         reached,
@@ -1362,6 +1438,70 @@ fn multi_source_dijkstra_ignores_duplicate_sources() {
                     source: a
                 }
             )
+        ]
+    );
+}
+
+#[test]
+fn priority_flood_raises_a_pit_to_the_level_it_is_flooded_from() {
+    let mut graph = GraphBuilder::<f64, ()>::new().build();
+    let s = graph.add_vertex(0.0);
+    let x = graph.add_vertex(3.0);
+    let y = graph.add_vertex(1.0);
+    let pit = graph.add_vertex(0.0);
+    graph.edges_mut().add_edge(s, x, ());
+    graph.edges_mut().add_edge(s, y, ());
+    graph.edges_mut().add_edge(y, pit, ());
+
+    let flooding = PriorityFlood
+        .visit(&graph, [s], |id| *graph.vertex(id).unwrap())
+        .unwrap();
+
+    let flooded = |level, from| Flooded { level, from };
+    assert_eq!(
+        flooding,
+        vec![
+            (s, flooded(0.0, None)),
+            (y, flooded(1.0, Some(s))),
+            (pit, flooded(1.0, Some(y))),
+            (x, flooded(3.0, Some(s))),
+        ]
+    );
+}
+
+#[test]
+fn priority_flood_reports_missing_seed_vertex() {
+    let graph = GraphBuilder::<f64, ()>::new().build();
+
+    assert_eq!(
+        PriorityFlood.visit(&graph, [bergraph::VertexId::new(0)], |_| 0.0),
+        Err(VisitError::VertexNotFound)
+    );
+}
+
+#[test]
+fn priority_flood_never_refloods_a_seed_and_breaks_ties_on_the_lower_id() {
+    let mut graph = GraphBuilder::<f64, ()>::new().build();
+    let a = graph.add_vertex(2.0);
+    let b = graph.add_vertex(0.0);
+    let c = graph.add_vertex(1.0);
+    let d = graph.add_vertex(1.0);
+    graph.edges_mut().add_edge(a, b, ());
+    graph.edges_mut().add_edge(b, d, ());
+    graph.edges_mut().add_edge(b, c, ());
+
+    let flooding = PriorityFlood
+        .visit(&graph, [b, a, b], |id| *graph.vertex(id).unwrap())
+        .unwrap();
+
+    let flooded = |level, from| Flooded { level, from };
+    assert_eq!(
+        flooding,
+        vec![
+            (b, flooded(0.0, None)),
+            (c, flooded(1.0, Some(b))),
+            (d, flooded(1.0, Some(b))),
+            (a, flooded(2.0, None)),
         ]
     );
 }

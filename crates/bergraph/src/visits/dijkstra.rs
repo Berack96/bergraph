@@ -1,44 +1,18 @@
 //! Dijkstra shortest-path visit, available for any graph, directed or undirected.
 
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::collections::BinaryHeap;
 
 use crate::{
-    edges::{GraphEdgeStorage, Weighted},
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult},
+    visits::{MinEntry, VertexMarks, VisitError, VisitResult},
 };
 
 #[derive(Debug, Clone, Copy)]
 enum Mark {
     Unvisited,
     Distance(f64),
-}
-
-struct HeapEntry<I: UnsignedId> {
-    distance: f64,
-    vertex: VertexId<I>,
-}
-
-impl<I: UnsignedId> PartialEq for HeapEntry<I> {
-    fn eq(&self, other: &Self) -> bool {
-        self.distance == other.distance
-    }
-}
-impl<I: UnsignedId> Eq for HeapEntry<I> {}
-impl<I: UnsignedId> PartialOrd for HeapEntry<I> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl<I: UnsignedId> Ord for HeapEntry<I> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed: BinaryHeap is a max-heap, Dijkstra needs the smallest distance first.
-        other
-            .distance
-            .partial_cmp(&self.distance)
-            .unwrap_or(Ordering::Equal)
-    }
 }
 
 /// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
@@ -51,18 +25,14 @@ impl<I: UnsignedId> Dijkstra<I> {
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage> ViewVisit<V, S> for Dijkstra<S::Id>
-where
-    S::Edge: Weighted,
-{
-    type Output = Option<(Vec<VertexId<S::Id>>, f64)>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+    /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }
@@ -72,12 +42,16 @@ where
         let mut heap = BinaryHeap::new();
 
         marks.set(start, Mark::Distance(0.0));
-        heap.push(HeapEntry {
-            distance: 0.0,
+        heap.push(MinEntry {
+            priority: 0.0,
             vertex: start,
         });
 
-        while let Some(HeapEntry { distance, vertex }) = heap.pop() {
+        while let Some(MinEntry {
+            priority: distance,
+            vertex,
+        }) = heap.pop()
+        {
             if vertex == self.target {
                 break;
             }
@@ -86,7 +60,7 @@ where
             }
 
             for edge in view.edges().of(vertex) {
-                let next_distance = distance + edge.data.weight();
+                let next_distance = distance + cost(&edge);
                 let is_shorter = match marks.get(edge.to) {
                     Mark::Unvisited => true,
                     Mark::Distance(known) => next_distance < *known,
@@ -94,8 +68,8 @@ where
                 if is_shorter {
                     marks.set(edge.to, Mark::Distance(next_distance));
                     previous.set(edge.to, Some(vertex));
-                    heap.push(HeapEntry {
-                        distance: next_distance,
+                    heap.push(MinEntry {
+                        priority: next_distance,
                         vertex: edge.to,
                     });
                 }
