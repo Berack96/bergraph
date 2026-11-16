@@ -78,8 +78,8 @@ where
     }
 
     fn get(&self, from: &VertexId<S::Id>, to: &VertexId<S::Id>) -> Option<&S::Edge> {
-        // shortcut: scans `from`'s edges to give the edge filter its key, O(degree) instead of the
-        // storage's own lookup; switch to a keyed `get` on the storage if filtered lookups get hot.
+        // shortcut: scans `of(from)` (O(V) on `AdjMatrix`) to give the edge filter its key; switch
+        // to a keyed `get` on the storage if filtered lookups get hot.
         self.of(*from)
             .find(|edge| edge.to == *to)
             .map(|edge| edge.data)

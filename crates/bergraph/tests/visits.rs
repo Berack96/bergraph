@@ -423,7 +423,7 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
             source: s2
         })
     );
-    // y is equidistant from both sources: ties are broken by the lower vertex id, s1 first.
+    // y is equidistant from both sources: the tie goes to s1, the lower id finalized first.
     assert_eq!(
         of(y),
         Some(DijkstraReached {
@@ -447,6 +447,10 @@ fn multi_source_dijkstra_stops_beyond_the_maximum_distance() {
         .unwrap();
     let ids: Vec<_> = reached.iter().map(|(id, _)| *id).collect();
     assert_eq!(ids, vec![a, b]);
+    let sources_only = MultiSourceDijkstra::new(-1.0)
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
+    assert_eq!(sources_only.len(), 1);
 }
 
 #[test]
@@ -1472,5 +1476,32 @@ fn priority_flood_reports_missing_seed_vertex() {
     assert_eq!(
         PriorityFlood.visit(&graph, [bergraph::VertexId::new(0)], |_| 0.0),
         Err(VisitError::VertexNotFound)
+    );
+}
+
+#[test]
+fn priority_flood_never_refloods_a_seed_and_breaks_ties_on_the_lower_id() {
+    let mut graph = GraphBuilder::<f64, ()>::new().build();
+    let a = graph.add_vertex(2.0);
+    let b = graph.add_vertex(0.0);
+    let c = graph.add_vertex(1.0);
+    let d = graph.add_vertex(1.0);
+    graph.edges_mut().add_edge(a, b, ());
+    graph.edges_mut().add_edge(b, d, ());
+    graph.edges_mut().add_edge(b, c, ());
+
+    let flooding = PriorityFlood
+        .visit(&graph, [b, a, b], |id| *graph.vertex(id).unwrap())
+        .unwrap();
+
+    let flooded = |level, from| Flooded { level, from };
+    assert_eq!(
+        flooding,
+        vec![
+            (b, flooded(0.0, None)),
+            (c, flooded(1.0, Some(b))),
+            (d, flooded(1.0, Some(b))),
+            (a, flooded(2.0, None)),
+        ]
     );
 }
