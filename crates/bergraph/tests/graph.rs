@@ -41,7 +41,7 @@ fn vertex_mut_returns_none_for_unknown_vertex() {
 #[test]
 fn supports_fixed_storage() {
     let mut graph = GraphBuilder::<String, ()>::new()
-        .as_adjlist_fixed_max_degree::<4>()
+        .into_adjlist_fixed_max_degree::<4>()
         .build();
 
     let vertex = graph.add_vertex(String::from("fixed"));
@@ -52,7 +52,7 @@ fn supports_fixed_storage() {
 #[test]
 fn clones_a_fixed_storage_graph_independently_of_the_original() {
     let original = GraphBuilder::<String, ()>::new()
-        .as_adjlist_fixed_max_degree::<4>()
+        .into_adjlist_fixed_max_degree::<4>()
         .with_vertices(vec![String::from("a")])
         .build();
     let vertex = VertexId::new(0);

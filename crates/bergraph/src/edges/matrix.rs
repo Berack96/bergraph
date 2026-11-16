@@ -85,7 +85,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         })
     }
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         (0..self.size).flat_map(move |row| self.of(VertexId::new(row)))
     }
 

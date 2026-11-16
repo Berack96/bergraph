@@ -58,14 +58,14 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
         panic!("EdgeFilteredView cannot be created with edges");
     }
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
         self.edge_storage
-            .get_all()
+            .all()
             .filter(|edge| self.edge_in_view(edge))
     }
 
     fn count(&self) -> usize {
-        self.get_all().count()
+        self.all().count()
     }
 
     fn of(&self, id: VertexId<S::Id>) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {

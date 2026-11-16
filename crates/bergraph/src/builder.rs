@@ -53,7 +53,7 @@ where
     S: GraphEdgeStorage<Edge = E, Id = I>,
 {
     // Switch from the dynamic adjacency list to the fixed-capacity one, sized by a const generic.
-    pub fn as_adjlist_fixed_max_degree<const N: usize>(
+    pub fn into_adjlist_fixed_max_degree<const N: usize>(
         self,
     ) -> GraphBuilder<V, E, I, AdjListFixed<E, I, N>> {
         GraphBuilder {
@@ -63,7 +63,7 @@ where
     }
 
     // Switch explicitly back to the dynamic adjacency list.
-    pub fn as_adjlist(self) -> GraphBuilder<V, E, I, AdjList<E, I>> {
+    pub fn into_adjlist(self) -> GraphBuilder<V, E, I, AdjList<E, I>> {
         GraphBuilder {
             vertices: self.vertices,
             _marker: PhantomData,
@@ -71,7 +71,7 @@ where
     }
 
     // Switch to the compressed sparse row storage.
-    pub fn as_csr(self) -> GraphBuilder<V, E, I, AdjCsr<E, I>> {
+    pub fn into_csr(self) -> GraphBuilder<V, E, I, AdjCsr<E, I>> {
         GraphBuilder {
             vertices: self.vertices,
             _marker: PhantomData,
@@ -79,7 +79,7 @@ where
     }
 
     // Switch to the dense adjacency matrix storage.
-    pub fn as_matrix(self) -> GraphBuilder<V, E, I, AdjMatrix<E, I>> {
+    pub fn into_matrix(self) -> GraphBuilder<V, E, I, AdjMatrix<E, I>> {
         GraphBuilder {
             vertices: self.vertices,
             _marker: PhantomData,

@@ -63,7 +63,7 @@ fn adj_list_fixed_build() -> AdjListFixed<(), u32, EDGES_PER_VERTEX> {
 ))]
 fn adj_list_iterate(bencher: divan::Bencher) {
     let storage = build_adj_list();
-    bencher.bench(|| divan::black_box(storage.get_all().count()));
+    bencher.bench(|| divan::black_box(storage.all().count()));
 }
 
 #[divan::bench(counter = divan::counter::ItemsCount::new(
@@ -71,7 +71,7 @@ fn adj_list_iterate(bencher: divan::Bencher) {
 ))]
 fn adj_list_fixed_iterate(bencher: divan::Bencher) {
     let storage = build_adj_list_fixed();
-    bencher.bench(|| divan::black_box(storage.get_all().count()));
+    bencher.bench(|| divan::black_box(storage.all().count()));
 }
 
 #[divan::bench(counter = divan::counter::ItemsCount::new(
@@ -86,7 +86,7 @@ fn csr_build() -> AdjCsr<(), u32> {
 ))]
 fn csr_iterate(bencher: divan::Bencher) {
     let storage = build_csr();
-    bencher.bench(|| divan::black_box(storage.get_all().count()));
+    bencher.bench(|| divan::black_box(storage.all().count()));
 }
 
 #[divan::bench(counter = divan::counter::ItemsCount::new(
@@ -101,7 +101,7 @@ fn matrix_build() -> AdjMatrix<(), u32> {
 ))]
 fn matrix_iterate(bencher: divan::Bencher) {
     let storage = build_matrix();
-    bencher.bench(|| divan::black_box(storage.get_all().count()));
+    bencher.bench(|| divan::black_box(storage.all().count()));
 }
 
 fn main() {

@@ -39,7 +39,7 @@ where
 
         let edges: WeightedEdges<S::Id> = view
             .edges()
-            .get_all()
+            .all()
             .map(|edge| (edge.from, edge.to, edge.data.weight()))
             .collect();
 

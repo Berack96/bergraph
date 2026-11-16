@@ -47,7 +47,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             .map(move |edge| EdgeView::new(id, edge.to, &edge.data))
     }
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         self.edges.iter().enumerate().flat_map(|(from_id, edges)| {
             let from_vertex = VertexId::new(from_id);
             edges
@@ -136,7 +136,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
     }
 
     fn parents_of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
-        self.get_all().filter(move |edge| id == edge.to)
+        self.all().filter(move |edge| id == edge.to)
     }
 
     fn count_incoming(&self, id: VertexId<I>) -> usize {

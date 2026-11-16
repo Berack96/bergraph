@@ -43,7 +43,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
             })
     }
 
-    fn get_all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         self.edges.iter().enumerate().flat_map(|(from_id, edges)| {
             let from_vertex = VertexId::new(from_id);
             edges.iter().filter_map(move |edge| {
@@ -149,11 +149,11 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
     }
 
     fn parents_of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
-        self.get_all().filter(move |edge| edge.to == id)
+        self.all().filter(move |edge| edge.to == id)
     }
 
     fn count_incoming(&self, id: VertexId<I>) -> usize {
-        self.get_all().filter(|edge| edge.to == id).count()
+        self.all().filter(|edge| edge.to == id).count()
     }
 
     fn count_outgoing(&self, id: VertexId<I>) -> usize {
