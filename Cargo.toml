@@ -1,14 +1,14 @@
 [workspace]
 resolver = "3"
-members = ["crates/oxygraph", "crates/oxygraph-derive"]
+members = ["crates/bergraph", "crates/bergraph-derive"]
 
 [workspace.package]
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/Berack96/oxygraph"
+repository = "https://github.com/Berack96/bergraph"
 
 [workspace.dependencies]
-oxygraph-derive = { path = "crates/oxygraph-derive" }
+bergraph-derive = { path = "crates/bergraph-derive" }
 
 # CI runs without incremental compilation: no cache is reused between runs, so
 # incremental only adds overhead there.

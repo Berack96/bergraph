@@ -1,4 +1,4 @@
-use oxygraph::{
+use bergraph::{
     VertexId,
     graph_edges::{
         AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirected,

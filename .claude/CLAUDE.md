@@ -23,8 +23,8 @@ Always on, from the start to the end of every session, on every client (CLI, mob
 ## Project layout
 
 - [Cargo.toml](Cargo.toml) — workspace manifest, at the repo root.
-- [crates/oxygraph/](crates/oxygraph/) — the library crate (`oxygraph`): graph data structures and algorithms.
-- [crates/oxygraph-derive/](crates/oxygraph-derive/) — proc-macro crate (`oxygraph-derive`) for derive macros, wired in as a path dependency of `oxygraph`. Provides `#[serde_feature]`, an attribute macro that conditionally derives `Serialize`/`Deserialize` (and adds the matching bounds to generics/associated types) behind `oxygraph`'s `serde` feature, used throughout `crates/oxygraph/src` on graph, vertex, and edge-storage types.
+- [crates/bergraph/](crates/bergraph/) — the library crate (`bergraph`): graph data structures and algorithms.
+- [crates/bergraph-derive/](crates/bergraph-derive/) — proc-macro crate (`bergraph-derive`) for derive macros, wired in as a path dependency of `bergraph`. Provides `#[serde_feature]`, an attribute macro that conditionally derives `Serialize`/`Deserialize` (and adds the matching bounds to generics/associated types) behind `bergraph`'s `serde` feature, used throughout `crates/bergraph/src` on graph, vertex, and edge-storage types.
 
 Run `mise run setup` once after cloning: it installs the repo's [.gitconfig](.gitconfig) as a local `include.path` so shared git rules (`merge.ff = only`, `pull.rebase = false`, `push.default = current`, `fetch.prune = true`) apply without touching global git config. Lint/build/test via plain `cargo`, or via the `mise` tasks in [.mise.toml](.mise.toml): `rust:test` (nextest) is the one to run by hand; `rust:ci` (fmt check + clippy + test, all under the `ci` cargo profile so they share one build) is what [.github/workflows/pr.yml](.github/workflows/pr.yml) runs on PRs, through the reusable workflows of [Berack96/workflows](https://github.com/Berack96/workflows) like every workflow in [.github/workflows/](.github/workflows/), and `rust:clippy-editor` is what `rust-analyzer.check.overrideCommand` in [.vscode/settings.json](.vscode/settings.json) invokes — neither of those two is meant for manual use.
 

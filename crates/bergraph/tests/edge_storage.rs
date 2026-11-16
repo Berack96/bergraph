@@ -2,8 +2,8 @@ macro_rules! storage_tests {
     ($( $module:ident => $storage:ty ),+ $(,)?) => {
         $(
             mod $module {
-                use oxygraph::VertexId;
-                use oxygraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageDirected};
+                use bergraph::VertexId;
+                use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageDirected};
 
                 fn storage() -> $storage {
                     <$storage>::new()
@@ -104,16 +104,16 @@ macro_rules! storage_tests {
 }
 
 storage_tests! {
-    adj_list => oxygraph::graph_edges::AdjList<String, u32>,
-    adj_list_fixed => oxygraph::graph_edges::AdjListFixed<String, u32, 2>,
-    adj_csr => oxygraph::graph_edges::AdjCsr<String, u32>,
-    adj_matrix => oxygraph::graph_edges::AdjMatrix<String, u32>,
+    adj_list => bergraph::graph_edges::AdjList<String, u32>,
+    adj_list_fixed => bergraph::graph_edges::AdjListFixed<String, u32, 2>,
+    adj_csr => bergraph::graph_edges::AdjCsr<String, u32>,
+    adj_matrix => bergraph::graph_edges::AdjMatrix<String, u32>,
 }
 
 #[cfg(test)]
 mod fixed_storage_tests {
-    use oxygraph::VertexId;
-    use oxygraph::graph_edges::{AdjListFixed, GraphEdgeStorageDirected};
+    use bergraph::VertexId;
+    use bergraph::graph_edges::{AdjListFixed, GraphEdgeStorageDirected};
 
     #[test]
     fn reuses_a_slot_after_removing_an_edge() {
@@ -151,7 +151,7 @@ mod memory_layout_tests {
         num::{NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroUsize},
     };
 
-    use oxygraph::VertexId;
+    use bergraph::VertexId;
 
     #[allow(dead_code)]
     struct EdgeU8<E> {

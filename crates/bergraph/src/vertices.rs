@@ -1,6 +1,6 @@
 use std::{fmt::Debug, hash::Hash, num::NonZero};
 
-use oxygraph_derive::serde_feature;
+use bergraph_derive::serde_feature;
 
 #[serde_feature]
 pub trait UnsignedId: Debug + Copy + Eq + Hash {

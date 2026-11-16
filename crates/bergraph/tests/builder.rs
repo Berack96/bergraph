@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test_builder {
-    use oxygraph::{GraphBuilder, VertexId, graph_view::GraphView};
+    use bergraph::{GraphBuilder, VertexId, graph_view::GraphView};
 
     #[test]
     fn builds_dynamic_adjacency_list_with_default_capacity() {
