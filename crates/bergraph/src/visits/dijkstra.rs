@@ -3,10 +3,10 @@
 use std::collections::BinaryHeap;
 
 use crate::{
-    edges::{GraphEdgeStorage, Weighted},
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{MinEntry, VertexMarks, ViewVisit, VisitError, VisitResult},
+    visits::{MinEntry, VertexMarks, VisitError, VisitResult},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -25,18 +25,14 @@ impl<I: UnsignedId> Dijkstra<I> {
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage> ViewVisit<V, S> for Dijkstra<S::Id>
-where
-    S::Edge: Weighted,
-{
-    type Output = Option<(Vec<VertexId<S::Id>>, f64)>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+    /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }
@@ -64,7 +60,7 @@ where
             }
 
             for edge in view.edges().of(vertex) {
-                let next_distance = distance + edge.data.weight();
+                let next_distance = distance + cost(&edge);
                 let is_shorter = match marks.get(edge.to) {
                     Mark::Unvisited => true,
                     Mark::Distance(known) => next_distance < *known,

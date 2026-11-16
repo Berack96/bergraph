@@ -243,9 +243,31 @@ fn dijkstra_finds_shortest_path() {
     graph.edges_mut().add_edge_directed(a, c, Km(1.0));
     graph.edges_mut().add_edge_directed(c, b, Km(1.0));
 
-    let (path, total) = Dijkstra::new(b).visit(&graph, a).unwrap().unwrap();
+    let (path, total) = Dijkstra::new(b)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
     assert_eq!(path, vec![a, c, b]);
     assert_eq!(total, 2.0);
+}
+
+#[test]
+fn dijkstra_breaks_distance_ties_on_the_lower_vertex_id() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge_directed(a, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(c, d, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, d, Km(1.0));
+
+    let (path, _) = Dijkstra::new(d)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
+    assert_eq!(path, vec![a, b, d]);
 }
 
 #[test]
@@ -254,7 +276,12 @@ fn dijkstra_returns_none_for_unreachable_target() {
     let a = graph.add_vertex("a");
     let b = graph.add_vertex("b");
 
-    assert_eq!(Dijkstra::new(b).visit(&graph, a).unwrap(), None);
+    assert_eq!(
+        Dijkstra::new(b)
+            .visit(&graph, a, |edge| edge.data.0)
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -264,7 +291,7 @@ fn dijkstra_reports_missing_start_vertex() {
     let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
-        Dijkstra::new(b).visit(&graph, missing),
+        Dijkstra::new(b).visit(&graph, missing, |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -276,7 +303,7 @@ fn dijkstra_reports_missing_target_vertex() {
     let missing = bergraph::VertexId::new(1);
 
     assert_eq!(
-        Dijkstra::new(missing).visit(&graph, a),
+        Dijkstra::new(missing).visit(&graph, a, |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -369,7 +396,9 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
     graph.edges_mut().add_edge_directed(s1, y, Km(2.0));
     graph.edges_mut().add_edge_directed(s2, y, Km(2.0));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [s1, s2]).unwrap();
+    let reached = MultiSourceDijkstra
+        .visit(&graph, [s1, s2], |edge| edge.data.0)
+        .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
 
     assert_eq!(
@@ -394,7 +423,7 @@ fn multi_source_dijkstra_attributes_each_vertex_to_the_cheapest_source() {
             source: s2
         })
     );
-    // y is equidistant from both sources: ties are broken by input order, s1 first.
+    // y is equidistant from both sources: ties are broken by the lower vertex id, s1 first.
     assert_eq!(
         of(y),
         Some(DijkstraReached {
@@ -410,7 +439,9 @@ fn multi_source_dijkstra_omits_unreached_vertices() {
     let a = graph.add_vertex("a");
     let _isolated = graph.add_vertex("isolated");
 
-    let reached = MultiSourceDijkstra.visit(&graph, [a]).unwrap();
+    let reached = MultiSourceDijkstra
+        .visit(&graph, [a], |edge| edge.data.0)
+        .unwrap();
     assert_eq!(
         reached,
         vec![(
@@ -430,7 +461,7 @@ fn multi_source_dijkstra_reports_missing_source_vertex() {
     let missing = bergraph::VertexId::new(5);
 
     assert_eq!(
-        MultiSourceDijkstra.visit(&graph, [a, missing]),
+        MultiSourceDijkstra.visit(&graph, [a, missing], |edge| edge.data.0),
         Err(VisitError::VertexNotFound)
     );
 }
@@ -1317,7 +1348,9 @@ fn multi_source_dijkstra_keeps_a_source_attributed_to_itself_when_reachable_more
     let s2 = graph.add_vertex("s2");
     graph.edges_mut().add_edge_directed(s2, s1, Km(0.001));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [s1, s2]).unwrap();
+    let reached = MultiSourceDijkstra
+        .visit(&graph, [s1, s2], |edge| edge.data.0)
+        .unwrap();
     let of = |v| reached.iter().find(|(id, _)| *id == v).map(|(_, r)| *r);
 
     assert_eq!(
@@ -1343,7 +1376,9 @@ fn multi_source_dijkstra_ignores_duplicate_sources() {
     let b = graph.add_vertex("b");
     graph.edges_mut().add_edge_directed(a, b, Km(1.0));
 
-    let reached = MultiSourceDijkstra.visit(&graph, [a, a]).unwrap();
+    let reached = MultiSourceDijkstra
+        .visit(&graph, [a, a], |edge| edge.data.0)
+        .unwrap();
 
     assert_eq!(
         reached,

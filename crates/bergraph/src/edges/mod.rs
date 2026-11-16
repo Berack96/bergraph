@@ -27,8 +27,8 @@ pub(crate) trait MaybeSerde {}
 #[cfg(not(feature = "serde"))]
 impl<T: ?Sized> MaybeSerde for T {}
 
-/// Edge data usable as a Dijkstra edge weight.
-/// `weight` must be non-negative: `Dijkstra` does not terminate on negative-weight cycles.
+/// Edge data usable as an edge weight by the weighted visits.
+/// `weight` must be non-negative for `AStar`, which does not terminate on negative-weight cycles.
 pub trait Weighted {
     fn weight(&self) -> f64;
 }

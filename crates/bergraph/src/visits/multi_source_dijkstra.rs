@@ -3,7 +3,7 @@
 use std::collections::BinaryHeap;
 
 use crate::{
-    edges::{GraphEdgeStorage, Weighted},
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
     visits::{MinEntry, VertexMarks, VisitError, VisitResult},
@@ -26,16 +26,14 @@ pub type DijkstraReaching<I> = Vec<(VertexId<I>, DijkstraReached<I>)>;
 pub struct MultiSourceDijkstra;
 
 impl MultiSourceDijkstra {
-    /// Runs the visit; the result lists every reached vertex in the order its shortest
-    /// distance was finalized. Fails if any `sources` vertex is missing from `view`.
+    /// Runs the visit, `cost` giving the non-negative weight of each edge; lists every reached
+    /// vertex in the order its distance was finalized. Fails on a `sources` vertex missing from `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
         sources: impl IntoIterator<Item = VertexId<S::Id>>,
-    ) -> VisitResult<DijkstraReaching<S::Id>>
-    where
-        S::Edge: Weighted,
-    {
+        cost: impl Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> f64,
+    ) -> VisitResult<DijkstraReaching<S::Id>> {
         let mut marks: VertexMarks<Option<DijkstraReached<S::Id>>> = VertexMarks::new(None);
         let mut heap = BinaryHeap::new();
 
@@ -75,7 +73,7 @@ impl MultiSourceDijkstra {
             order.push((vertex, current));
 
             for edge in view.edges().of(vertex) {
-                let next_distance = distance + edge.data.weight();
+                let next_distance = distance + cost(&edge);
                 let is_shorter = match marks.get(edge.to) {
                     None => true,
                     Some(known) => next_distance < known.distance,

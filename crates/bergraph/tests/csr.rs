@@ -2,7 +2,7 @@ use bergraph::{
     EdgeId, Graph, VertexId,
     graph_edges::{AdjCsr, CsrError, GraphEdgeStorage, GraphEdgeStorageDirected},
     graph_view::GraphView,
-    graph_visit::{Bfs, ViewVisit},
+    graph_visit::{Bfs, Dijkstra, ViewVisit},
 };
 
 fn v(id: usize) -> VertexId<u32> {
@@ -107,6 +107,20 @@ fn runs_the_visits_on_a_graph_over_a_csr() {
     assert_eq!(Bfs.visit(&graph, v(2)).unwrap(), vec![v(2), v(1), v(0)]);
     let view = graph.filtered_view(|name: &&str| *name != "b", |_| true);
     assert_eq!(Bfs.visit(&view, v(2)).unwrap(), vec![v(2)]);
+}
+
+#[test]
+fn runs_dijkstra_with_costs_indexed_by_edge_id() {
+    let (csr, ids) =
+        AdjCsr::<u32, u32>::directed(3, &[(v(0), v(1)), (v(1), v(2)), (v(0), v(2))]).unwrap();
+    let graph = Graph::new(vec!["a", "b", "c"], csr);
+    let mut costs = vec![0.0; graph.edges().count()];
+    for (id, cost) in ids.iter().zip([1.0, 1.0, 5.0]) {
+        costs[id.id()] = cost;
+    }
+
+    let shortest = Dijkstra::new(v(2)).visit(&graph, v(0), |edge| costs[edge.key.id()]);
+    assert_eq!(shortest.unwrap(), Some((vec![v(0), v(1), v(2)], 2.0)));
 }
 
 #[test]
