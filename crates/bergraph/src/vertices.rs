@@ -19,7 +19,7 @@ macro_rules! impl_unsigned_id {
                     <$t>::try_from(v).ok().and_then(|v| v.checked_add(1)).and_then(NonZero::new).expect("ID overflow")
                 }
                 #[inline(always)] fn from_nz(nz: Self::NonZero) -> usize {
-                    (nz.get() - 1) as usize
+                    usize::try_from(nz.get() - 1).expect("ID overflow")
                 }
             }
         )*
