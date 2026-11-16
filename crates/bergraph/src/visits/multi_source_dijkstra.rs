@@ -1,12 +1,10 @@
 //! Multi-source Dijkstra visit, available for any graph, directed or undirected.
 
-use std::collections::BinaryHeap;
-
 use crate::{
     edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{MinEntry, VertexMarks, VisitError, VisitResult},
+    visits::{MinEntry, SearchBuffers, VisitError, VisitResult},
 };
 
 /// Total edge weight from, and identity of, the source that reaches a vertex at the lowest cost.
@@ -42,65 +40,57 @@ impl MultiSourceDijkstra {
         sources: impl IntoIterator<Item = VertexId<S::Id>>,
         cost: impl Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> f64,
     ) -> VisitResult<DijkstraReaching<S::Id>> {
-        let mut marks: VertexMarks<Option<DijkstraReached<S::Id>>> = VertexMarks::new(None);
-        let mut heap = BinaryHeap::new();
+        self.visit_with(&mut SearchBuffers::default(), view, sources, cost)
+    }
 
+    /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    pub fn visit_with<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
+        &self,
+        buffers: &mut SearchBuffers<S::Id>,
+        view: &G,
+        sources: impl IntoIterator<Item = VertexId<S::Id>>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> f64,
+    ) -> VisitResult<DijkstraReaching<S::Id>> {
+        buffers.clear();
         for source in sources {
             if view.vertex(source).is_none() {
                 return Err(VisitError::VertexNotFound);
             }
-            if marks.get(source).is_some() {
-                continue;
+            if buffers.distance.get(source).is_none() {
+                buffers.reach(source, 0.0, Some(source), 0.0);
             }
-            marks.set(
-                source,
-                Some(DijkstraReached {
-                    distance: 0.0,
-                    source,
-                }),
-            );
-            heap.push(MinEntry {
-                priority: 0.0,
-                vertex: source,
-            });
         }
 
         let mut order = Vec::new();
         while let Some(MinEntry {
             priority: distance,
             vertex,
-        }) = heap.pop()
+        }) = buffers.heap.pop()
         {
-            let current = marks
+            if buffers
+                .distance
                 .get(vertex)
-                .expect("queued vertices are always marked");
-            if distance > current.distance {
+                .is_some_and(|known| known < distance)
+            {
                 continue; // stale entry, superseded by a shorter path found since
             }
-            let source = current.source;
-            order.push((vertex, current));
+            let source = buffers
+                .previous
+                .get(vertex)
+                .expect("reached vertices always have a source");
+            order.push((vertex, DijkstraReached { distance, source }));
 
             for edge in view.edges().of(vertex) {
                 let next_distance = distance + cost(&edge);
                 if next_distance > self.max_distance {
                     continue;
                 }
-                let is_shorter = match marks.get(edge.to) {
-                    None => true,
-                    Some(known) => next_distance < known.distance,
-                };
-                if is_shorter {
-                    marks.set(
-                        edge.to,
-                        Some(DijkstraReached {
-                            distance: next_distance,
-                            source,
-                        }),
-                    );
-                    heap.push(MinEntry {
-                        priority: next_distance,
-                        vertex: edge.to,
-                    });
+                if buffers
+                    .distance
+                    .get(edge.to)
+                    .is_none_or(|known| next_distance < known)
+                {
+                    buffers.reach(edge.to, next_distance, Some(source), next_distance);
                 }
             }
         }

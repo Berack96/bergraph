@@ -55,7 +55,7 @@ pub use simple_paths::AllSimplePaths;
 pub use topological_sort::TopologicalSort;
 pub use transitive_closure::{Reachability, TransitiveClosure};
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::BinaryHeap};
 
 use crate::vertices::{UnsignedId, VertexId};
 
@@ -137,6 +137,53 @@ impl<I: UnsignedId> Ord for MinEntry<I> {
             .priority
             .total_cmp(&self.priority)
             .then_with(|| other.vertex.cmp(&self.vertex))
+    }
+}
+
+/// Per-vertex arrays and heap of the shortest-path searches, reusable across `visit_with` calls:
+/// each search resets only the vertices the previous one reached, not the whole graph.
+pub struct SearchBuffers<I: UnsignedId> {
+    distance: VertexMarks<Option<f64>>,
+    // The predecessor on a path search, the source on a multi-source search.
+    previous: VertexMarks<Option<VertexId<I>>>,
+    heap: BinaryHeap<MinEntry<I>>,
+    reached: Vec<VertexId<I>>,
+}
+
+impl<I: UnsignedId> Default for SearchBuffers<I> {
+    fn default() -> Self {
+        Self {
+            distance: VertexMarks::new(None),
+            previous: VertexMarks::new(None),
+            heap: BinaryHeap::new(),
+            reached: Vec::new(),
+        }
+    }
+}
+
+impl<I: UnsignedId> SearchBuffers<I> {
+    fn clear(&mut self) {
+        for vertex in self.reached.drain(..) {
+            self.distance.set(vertex, None);
+            self.previous.set(vertex, None);
+        }
+        self.heap.clear();
+    }
+
+    /// Records `distance` and `previous` for `vertex` and queues it at `priority`.
+    fn reach(
+        &mut self,
+        vertex: VertexId<I>,
+        distance: f64,
+        previous: Option<VertexId<I>>,
+        priority: f64,
+    ) {
+        if self.distance.get(vertex).is_none() {
+            self.reached.push(vertex);
+        }
+        self.distance.set(vertex, Some(distance));
+        self.previous.set(vertex, previous);
+        self.heap.push(MinEntry { priority, vertex });
     }
 }
 

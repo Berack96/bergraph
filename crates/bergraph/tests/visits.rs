@@ -5,8 +5,8 @@ use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
     DijkstraReached, Eccentricity, EulerianTrail, Flooded, MaxFlow, MinimumSpanningTree,
-    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, StronglyConnectedComponents,
-    TopologicalSort, TransitiveClosure, VisitError,
+    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, SearchBuffers,
+    StronglyConnectedComponents, TopologicalSort, TransitiveClosure, VisitError,
 };
 
 #[test]
@@ -1486,5 +1486,30 @@ fn priority_flood_never_refloods_a_seed_and_breaks_ties_on_the_lower_id() {
             (d, flooded(1.0, Some(b))),
             (a, flooded(2.0, None)),
         ]
+    );
+}
+
+#[test]
+fn search_buffers_reused_across_searches_give_the_same_results() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(a, c, Km(5.0));
+    let cost = |edge: &bergraph::graph_view::EdgeView<'_, Km, u32>| edge.data.0;
+    let mut buffers = SearchBuffers::default();
+
+    let path = Dijkstra::new(c).visit_with(&mut buffers, &graph, a, cost);
+    assert_eq!(path, Dijkstra::new(c).visit(&graph, a, cost));
+    let near = MultiSourceDijkstra::new(1.0).visit_with(&mut buffers, &graph, [b], cost);
+    assert_eq!(near, MultiSourceDijkstra::new(1.0).visit(&graph, [b], cost));
+    let guided = AStar::new(c, |_| 0.0).visit_with(&mut buffers, &graph, a, cost);
+    assert_eq!(guided, path);
+    // Nothing reaches `a`: a distance left over from the searches above would report a path.
+    assert_eq!(
+        Dijkstra::new(a).visit_with(&mut buffers, &graph, c, cost),
+        Ok(None)
     );
 }
