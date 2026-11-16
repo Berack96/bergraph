@@ -2,7 +2,7 @@ use bergraph::{
     EdgeId, Graph, VertexId,
     graph_edges::{AdjCsr, CsrError, GraphEdgeStorage, GraphEdgeStorageDirected},
     graph_view::GraphView,
-    graph_visit::{Bfs, Dijkstra},
+    graph_visit::{ArticulationPoints, Bfs, Bridges, Dijkstra, StronglyConnectedComponents},
 };
 
 fn v(id: usize) -> VertexId<u32> {
@@ -177,4 +177,30 @@ fn rejects_an_endpoint_outside_the_vertices() {
         AdjCsr::<u32, u32>::directed(2, &[(v(0), v(2))]).err(),
         Some(CsrError::VertexOutOfRange)
     );
+}
+
+#[test]
+fn finds_bridges_and_articulation_points_on_an_undirected_csr() {
+    // Triangle 0-1-2 with a tail 2-3: 2-3 is the only bridge, 2 the only cut vertex.
+    let edges = [(v(0), v(1)), (v(1), v(2)), (v(2), v(0)), (v(2), v(3))];
+    let (csr, _) = AdjCsr::<u32, u32>::undirected(4, &edges).unwrap();
+    let graph = Graph::new(vec![(); 4], csr);
+
+    let bridges = Bridges.visit(&graph);
+    assert_eq!(bridges.len(), 1);
+    let (from, to) = bridges[0];
+    assert_eq!((from.id().min(to.id()), from.id().max(to.id())), (2, 3));
+    assert_eq!(ArticulationPoints.visit(&graph), vec![v(2)]);
+}
+
+#[test]
+fn finds_strongly_connected_components_on_a_directed_csr() {
+    let edges = [(v(0), v(1)), (v(1), v(0)), (v(1), v(2))];
+    let (csr, _) = AdjCsr::<u32, u32>::directed(3, &edges).unwrap();
+    let graph = Graph::new(vec![(); 3], csr);
+
+    let mut components = StronglyConnectedComponents.visit(&graph);
+    components.iter_mut().for_each(|component| component.sort());
+    components.sort();
+    assert_eq!(components, vec![vec![v(0), v(1)], vec![v(2)]]);
 }
