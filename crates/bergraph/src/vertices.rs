@@ -31,7 +31,7 @@ impl_unsigned_id!(u8, u16, u32, u64, u128, usize);
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct VertexId<I: UnsignedId>(pub I::NonZero);
+pub struct VertexId<I: UnsignedId>(I::NonZero);
 
 impl<I: UnsignedId> VertexId<I> {
     pub fn new(id: usize) -> Self {
