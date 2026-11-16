@@ -1234,7 +1234,10 @@ fn astar_finds_shortest_path_with_an_admissible_heuristic() {
             1.0
         }
     };
-    let (path, total) = AStar::new(b, heuristic).visit(&graph, a).unwrap().unwrap();
+    let (path, total) = AStar::new(b, heuristic)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
     assert_eq!(path, vec![a, c, b]);
     assert_eq!(total, 2.0);
 }
@@ -1245,7 +1248,12 @@ fn astar_returns_none_for_unreachable_target() {
     let a = graph.add_vertex("a");
     let b = graph.add_vertex("b");
 
-    assert_eq!(AStar::new(b, |_| 0.0).visit(&graph, a).unwrap(), None);
+    assert_eq!(
+        AStar::new(b, |_| 0.0)
+            .visit(&graph, a, |edge| edge.data.0)
+            .unwrap(),
+        None
+    );
 }
 
 #[test]

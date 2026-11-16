@@ -4,7 +4,7 @@
 use std::{cmp::Ordering, collections::BinaryHeap};
 
 use crate::{
-    edges::{GraphEdgeStorage, Weighted},
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
     visits::{VertexMarks, VisitError, VisitResult, reconstruct_path},
@@ -59,14 +59,13 @@ where
         Self { target, heuristic }
     }
 
+    /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,
         start: VertexId<I>,
-    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>>
-    where
-        S::Edge: Weighted,
-    {
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }
@@ -94,7 +93,7 @@ where
             }
 
             for edge in view.edges().of(vertex) {
-                let next_distance = distance + edge.data.weight();
+                let next_distance = distance + cost(&edge);
                 let is_shorter = match marks.get(edge.to) {
                     Mark::Unvisited => true,
                     Mark::Distance(known) => next_distance < *known,

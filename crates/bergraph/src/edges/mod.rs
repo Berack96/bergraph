@@ -28,7 +28,6 @@ pub(crate) trait MaybeSerde {}
 impl<T: ?Sized> MaybeSerde for T {}
 
 /// Edge data usable as an edge weight by the weighted visits.
-/// `weight` must be non-negative for `AStar`, which does not terminate on negative-weight cycles.
 pub trait Weighted {
     fn weight(&self) -> f64;
 }
