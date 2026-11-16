@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths-ignore:
       - "**/*.md"
+      - ".claude/**"
 
 permissions: {}
 
@@ -16,8 +17,9 @@ jobs:
       contents: write
       pull-requests: read
       actions: read
-    uses: Berack96/workflows/.github/workflows/release.yml@v1.0.0
+    uses: Berack96/workflows/.github/workflows/release.yml@v1.1.0
     with:
       tag: v{YYYY}.{MM}-preview.{NNN}
       release-tag: v{X}.{Y}.{Z}
       github-release: prerelease
+      prune-keep: 3
