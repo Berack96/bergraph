@@ -8,13 +8,14 @@ mod views;
 mod visits;
 
 pub use builder::GraphBuilder;
+pub use edges::EdgeId;
 pub use graph::Graph;
 pub use vertices::VertexId;
 
 pub mod graph_edges {
     pub use super::edges::{
-        AdjCsr, AdjList, AdjListFixed, AdjMatrix, Edge, EdgeSimple, GraphEdgeStorage,
-        GraphEdgeStorageDirected, Weighted,
+        AdjCsr, AdjList, AdjListFixed, AdjMatrix, CsrError, Edge, EdgeSimple, GraphEdgeStorage,
+        GraphEdgeStorageDirected, GraphEdgeStorageDirectedMut, GraphEdgeStorageMut, Weighted,
     };
 }
 

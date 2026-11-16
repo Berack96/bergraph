@@ -1,4 +1,4 @@
-use bergraph::graph_edges::GraphEdgeStorage;
+use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageMut};
 use bergraph::graph_view::GraphView;
 use bergraph::{GraphBuilder, VertexId};
 

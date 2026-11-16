@@ -1,7 +1,8 @@
 use bergraph::{
     VertexId,
     graph_edges::{
-        AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirected,
+        AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirectedMut,
+        GraphEdgeStorageMut,
     },
 };
 
@@ -23,10 +24,16 @@ fn build_adj_list_fixed() -> AdjListFixed<(), u32, EDGES_PER_VERTEX> {
     storage
 }
 
-fn build_csr() -> AdjCsr<(), u32> {
-    let mut storage = AdjCsr::with_capacity(VERTICES);
-    add_edges(&mut storage);
-    storage
+fn build_csr() -> AdjCsr {
+    let edges: Vec<_> = (0..VERTICES)
+        .flat_map(|from| {
+            (0..EDGES_PER_VERTEX).map(move |offset| {
+                let to = (from + offset + 1) % VERTICES;
+                (VertexId::new(from), VertexId::new(to))
+            })
+        })
+        .collect();
+    AdjCsr::directed(VERTICES, &edges).unwrap().0
 }
 
 fn build_matrix() -> AdjMatrix<(), u32> {
@@ -35,7 +42,7 @@ fn build_matrix() -> AdjMatrix<(), u32> {
     storage
 }
 
-fn add_edges<S: GraphEdgeStorageDirected<Edge = (), Id = u32>>(storage: &mut S) {
+fn add_edges<S: GraphEdgeStorageDirectedMut<Edge = (), Id = u32>>(storage: &mut S) {
     for from in 0..VERTICES {
         for offset in 0..EDGES_PER_VERTEX {
             let to = (from + offset + 1) % VERTICES;
@@ -77,7 +84,7 @@ fn adj_list_fixed_iterate(bencher: divan::Bencher) {
 #[divan::bench(counter = divan::counter::ItemsCount::new(
     VERTICES * EDGES_PER_VERTEX,
 ))]
-fn csr_build() -> AdjCsr<(), u32> {
+fn csr_build() -> AdjCsr {
     build_csr()
 }
 

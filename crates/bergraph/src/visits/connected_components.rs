@@ -12,7 +12,7 @@ pub type Components<I> = Vec<Vec<VertexId<I>>>;
 
 /// Partitions every vertex the view exposes into connected components, treating
 /// [`GraphEdgeStorage::of`] as an undirected adjacency: on a graph built one direction at a
-/// time via [`add_edge_directed`](crate::edges::GraphEdgeStorageDirected::add_edge_directed),
+/// time via [`add_edge_directed`](crate::edges::GraphEdgeStorageDirectedMut::add_edge_directed),
 /// this follows outgoing edges only, same as [`Bfs`](super::Bfs). To restrict which vertices
 /// or edges count, run this over a [`GraphFilteredView`](crate::graph_view::GraphFilteredView)
 /// instead of filtering inside the visit.

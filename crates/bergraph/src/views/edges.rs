@@ -1,6 +1,6 @@
 use crate::{
     VertexId,
-    edges::{Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected},
+    edges::{EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected},
     views::{EdgeFilter, VertexFilter},
 };
 
@@ -37,7 +37,7 @@ impl<'a, V: 'static, S: GraphEdgeStorage> EdgeFilteredView<'a, V, S> {
         })
     }
 
-    fn edge_in_view(&self, edge: &EdgeView<'_, S::Edge, S::Id>) -> bool {
+    fn edge_in_view(&self, edge: &EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool {
         self.filter_edges
             .as_deref()
             .is_none_or(|filter| filter(edge.data))
@@ -49,16 +49,9 @@ impl<'a, V: 'static, S: GraphEdgeStorage> EdgeFilteredView<'a, V, S> {
 impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<'a, V, S> {
     type Edge = S::Edge;
     type Id = S::Id;
+    type EdgeKey = S::EdgeKey;
 
-    fn with_capacity(_capacity: usize) -> Self {
-        panic!("EdgeFilteredView cannot be created with capacity");
-    }
-
-    fn with_edges(_edges: Vec<Edge<S::Edge, S::Id>>) -> Self {
-        panic!("EdgeFilteredView cannot be created with edges");
-    }
-
-    fn all(&self) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id, S::EdgeKey>> {
         self.edge_storage
             .all()
             .filter(|edge| self.edge_in_view(edge))
@@ -68,7 +61,10 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
         self.all().count()
     }
 
-    fn of(&self, id: VertexId<S::Id>) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
+    fn of(
+        &self,
+        id: VertexId<S::Id>,
+    ) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id, S::EdgeKey>> {
         self.edge_storage
             .of(id)
             .filter(|edge| self.edge_in_view(edge))
@@ -76,17 +72,6 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
 
     fn count_of(&self, id: VertexId<S::Id>) -> usize {
         self.of(id).count()
-    }
-
-    fn add_edge(&mut self, _from: VertexId<S::Id>, _to: VertexId<S::Id>, _data: S::Edge)
-    where
-        S::Edge: Clone,
-    {
-        panic!("EdgeFilteredView cannot add edges");
-    }
-
-    fn remove_edge(&mut self, _from: VertexId<S::Id>, _to: VertexId<S::Id>) -> Option<S::Edge> {
-        panic!("EdgeFilteredView cannot remove edges");
     }
 
     fn get(&self, from: &VertexId<S::Id>, to: &VertexId<S::Id>) -> Option<&S::Edge> {
@@ -103,18 +88,6 @@ impl<'a, V: 'static, S: GraphEdgeStorage> GraphEdgeStorage for EdgeFilteredView<
     fn has_edge(&self, from: &VertexId<S::Id>, to: &VertexId<S::Id>) -> bool {
         self.get(from, to).is_some()
     }
-
-    fn add_all(
-        &mut self,
-        _from: VertexId<S::Id>,
-        _edges: impl IntoIterator<Item = (VertexId<S::Id>, S::Edge)>,
-    ) {
-        panic!("EdgeFilteredView cannot add edges");
-    }
-
-    fn remove_all(&mut self, _from: VertexId<S::Id>) -> Vec<(VertexId<S::Id>, S::Edge)> {
-        panic!("EdgeFilteredView cannot remove edges");
-    }
 }
 
 impl<'a, V: 'static, S: GraphEdgeStorageDirected> GraphEdgeStorageDirected
@@ -123,7 +96,7 @@ impl<'a, V: 'static, S: GraphEdgeStorageDirected> GraphEdgeStorageDirected
     fn children_of(
         &self,
         id: VertexId<S::Id>,
-    ) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
+    ) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id, S::EdgeKey>> {
         self.edge_storage
             .children_of(id)
             .filter(|edge| self.edge_in_view(edge))
@@ -132,7 +105,7 @@ impl<'a, V: 'static, S: GraphEdgeStorageDirected> GraphEdgeStorageDirected
     fn parents_of(
         &self,
         id: VertexId<S::Id>,
-    ) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id>> {
+    ) -> impl Iterator<Item = EdgeView<'_, S::Edge, S::Id, S::EdgeKey>> {
         self.edge_storage
             .parents_of(id)
             .filter(|edge| self.edge_in_view(edge))
@@ -144,17 +117,5 @@ impl<'a, V: 'static, S: GraphEdgeStorageDirected> GraphEdgeStorageDirected
 
     fn count_outgoing(&self, id: VertexId<S::Id>) -> usize {
         self.children_of(id).count()
-    }
-
-    fn add_edge_directed(&mut self, _from: VertexId<S::Id>, _to: VertexId<S::Id>, _data: S::Edge) {
-        panic!("EdgeFilteredView cannot add edges");
-    }
-
-    fn remove_edge_directed(
-        &mut self,
-        _from: VertexId<S::Id>,
-        _to: VertexId<S::Id>,
-    ) -> Option<S::Edge> {
-        panic!("EdgeFilteredView cannot remove edges");
     }
 }

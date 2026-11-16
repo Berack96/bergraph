@@ -1,5 +1,8 @@
 use crate::{
-    edges::{Edge, EdgeSimple, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},
+    edges::{
+        Edge, EdgeSimple, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected,
+        GraphEdgeStorageDirectedMut, GraphEdgeStorageMut, MaybeSerde,
+    },
     vertices::{UnsignedId, VertexId},
 };
 
@@ -30,6 +33,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
 {
     type Edge = E;
     type Id = I;
+    type EdgeKey = ();
 
     fn of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         let vert_id = id.id();
@@ -39,7 +43,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
             .flatten()
             .filter_map(move |edge| {
                 edge.as_ref()
-                    .map(|edge| EdgeView::new(id, edge.to, &edge.data))
+                    .map(|edge| EdgeView::new(id, edge.to, &edge.data, ()))
             })
     }
 
@@ -48,29 +52,9 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
             let from_vertex = VertexId::new(from_id);
             edges.iter().filter_map(move |edge| {
                 edge.as_ref()
-                    .map(|edge| EdgeView::new(from_vertex, edge.to, &edge.data))
+                    .map(|edge| EdgeView::new(from_vertex, edge.to, &edge.data, ()))
             })
         })
-    }
-
-    fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
-    where
-        E: Clone,
-    {
-        if from == to {
-            self.add_edge_directed(from, to, data);
-        } else {
-            self.add_edge_directed(from, to, data.clone());
-            self.add_edge_directed(to, from, data);
-        }
-    }
-
-    fn remove_edge(&mut self, from: VertexId<I>, to: VertexId<I>) -> Option<E> {
-        let removed = self.remove_edge_directed(from, to);
-        if from != to {
-            self.remove_edge_directed(to, from);
-        }
-        removed
     }
 
     fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
@@ -96,6 +80,37 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
         self.edge_count
     }
 
+    fn count_of(&self, id: VertexId<I>) -> usize {
+        self.edges
+            .get(id.id())
+            .map(|edges| edges.iter().filter(|edge| edge.is_some()).count())
+            .unwrap_or(0)
+    }
+}
+
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphEdgeStorageMut
+    for AdjListFixed<E, I, N>
+{
+    fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
+    where
+        E: Clone,
+    {
+        if from == to {
+            self.add_edge_directed(from, to, data);
+        } else {
+            self.add_edge_directed(from, to, data.clone());
+            self.add_edge_directed(to, from, data);
+        }
+    }
+
+    fn remove_edge(&mut self, from: VertexId<I>, to: VertexId<I>) -> Option<E> {
+        let removed = self.remove_edge_directed(from, to);
+        if from != to {
+            self.remove_edge_directed(to, from);
+        }
+        removed
+    }
+
     fn with_capacity(capacity: usize) -> Self {
         Self {
             edges: Vec::with_capacity(capacity),
@@ -109,13 +124,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
             adj_list.add_edge_directed(edge.from, edge.to, edge.data);
         }
         adj_list
-    }
-
-    fn count_of(&self, id: VertexId<I>) -> usize {
-        self.edges
-            .get(id.id())
-            .map(|edges| edges.iter().filter(|edge| edge.is_some()).count())
-            .unwrap_or(0)
     }
 
     fn add_all(&mut self, from: VertexId<I>, edges: impl IntoIterator<Item = (VertexId<I>, E)>) {
@@ -159,7 +167,11 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize> GraphE
     fn count_outgoing(&self, id: VertexId<I>) -> usize {
         self.count_of(id)
     }
+}
 
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde, const N: usize>
+    GraphEdgeStorageDirectedMut for AdjListFixed<E, I, N>
+{
     fn add_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>, data: E) {
         let from = from.id();
         if from + 1 > self.edges.len() {

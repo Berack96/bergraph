@@ -3,7 +3,7 @@ macro_rules! storage_tests {
         $(
             mod $module {
                 use bergraph::VertexId;
-                use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageDirected};
+                use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageDirectedMut, GraphEdgeStorageMut};
 
                 fn storage() -> $storage {
                     <$storage>::new()
@@ -106,14 +106,15 @@ macro_rules! storage_tests {
 storage_tests! {
     adj_list => bergraph::graph_edges::AdjList<String, u32>,
     adj_list_fixed => bergraph::graph_edges::AdjListFixed<String, u32, 2>,
-    adj_csr => bergraph::graph_edges::AdjCsr<String, u32>,
     adj_matrix => bergraph::graph_edges::AdjMatrix<String, u32>,
 }
 
 #[cfg(test)]
 mod fixed_storage_tests {
     use bergraph::VertexId;
-    use bergraph::graph_edges::{AdjListFixed, GraphEdgeStorageDirected};
+    use bergraph::graph_edges::{
+        AdjListFixed, GraphEdgeStorageDirected, GraphEdgeStorageDirectedMut,
+    };
 
     #[test]
     fn reuses_a_slot_after_removing_an_edge() {

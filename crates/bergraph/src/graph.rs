@@ -29,7 +29,9 @@ pub struct Graph<V, S> {
 }
 
 impl<V, S: GraphEdgeStorage> Graph<V, S> {
-    pub(crate) fn new_with(vertices: Vec<V>, edge_storage: S) -> Self {
+    /// Graph over `vertices`, vertex `i` being `VertexId::new(i)` in `edge_storage`. Not checked:
+    /// edges to ids past `vertices.len()` stay reachable by visits, `vertex()` returns `None` there.
+    pub fn new(vertices: Vec<V>, edge_storage: S) -> Self {
         Self {
             vertices,
             edge_storage,

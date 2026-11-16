@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    edges::{AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, MaybeSerde},
+    edges::{AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorageMut, MaybeSerde},
     graph::Graph,
     vertices::UnsignedId,
 };
@@ -46,7 +46,7 @@ impl<V, E: MaybeSerde> Default for GraphBuilder<V, E> {
 impl<V, E: MaybeSerde, I, S> GraphBuilder<V, E, I, S>
 where
     I: UnsignedId + MaybeSerde,
-    S: GraphEdgeStorage<Edge = E, Id = I>,
+    S: GraphEdgeStorageMut<Edge = E, Id = I>,
 {
     // Switch from the dynamic adjacency list to the fixed-capacity one, sized by a const generic.
     pub fn into_adjlist_fixed_max_degree<const N: usize>(
@@ -60,14 +60,6 @@ where
 
     // Switch explicitly back to the dynamic adjacency list.
     pub fn into_adjlist(self) -> GraphBuilder<V, E, I, AdjList<E, I>> {
-        GraphBuilder {
-            vertices: self.vertices,
-            _marker: PhantomData,
-        }
-    }
-
-    // Switch to the compressed sparse row storage.
-    pub fn into_csr(self) -> GraphBuilder<V, E, I, AdjCsr<E, I>> {
         GraphBuilder {
             vertices: self.vertices,
             _marker: PhantomData,
@@ -90,6 +82,6 @@ where
     pub fn build(self) -> Graph<V, S> {
         let vertices = self.vertices.unwrap_or_default();
         let size = vertices.len();
-        Graph::new_with(vertices, S::with_capacity(size))
+        Graph::new(vertices, S::with_capacity(size))
     }
 }

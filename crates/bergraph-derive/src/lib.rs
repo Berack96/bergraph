@@ -63,7 +63,7 @@ fn handle_struct(item: ItemStruct) -> TokenStream {
 }
 
 fn handle_trait(mut item: ItemTrait, overrides: &Overrides) -> TokenStream {
-    // Bounds go on GraphEdgeStorage's own generics/associated types (the data it holds),
+    // Bounds go on GraphEdgeStorage's own generics/associated types (`EdgeKey` included),
     // never as a `Self: Serialize` supertrait: a storage wrapper like EdgeFilteredView is
     // never itself serializable (it borrows and holds a filter function pointer), even
     // when the data it stores is.

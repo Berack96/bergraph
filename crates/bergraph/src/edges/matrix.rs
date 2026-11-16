@@ -4,7 +4,10 @@ use std::marker::PhantomData;
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::{Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, MaybeSerde},
+    edges::{
+        Edge, EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected, GraphEdgeStorageDirectedMut,
+        GraphEdgeStorageMut, MaybeSerde,
+    },
     vertices::{UnsignedId, VertexId},
 };
 
@@ -15,8 +18,7 @@ use crate::{
 ///
 /// The trade-off is memory: O(V²) regardless of how many edges actually exist, and growing
 /// to a higher vertex id reallocates the whole grid (O(n²)). Good fit for dense graphs with a
-/// known-ish vertex count; wasteful for large sparse graphs, where `AdjList`/`AdjCsr` fit
-/// better.
+/// known-ish vertex count; wasteful for large sparse graphs, where `AdjList` fits better.
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjMatrix<E, I: UnsignedId> {
     cells: Vec<Option<E>>,
@@ -74,6 +76,7 @@ impl<E: 'static, I: UnsignedId> Default for AdjMatrix<E, I> {
 impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjMatrix<E, I> {
     type Edge = E;
     type Id = I;
+    type EdgeKey = ();
 
     fn of(&self, id: VertexId<I>) -> impl Iterator<Item = EdgeView<'_, E, I>> {
         let row = id.id();
@@ -81,7 +84,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         cols.filter_map(move |col| {
             self.cells[row * self.size + col]
                 .as_ref()
-                .map(|data| EdgeView::new(id, VertexId::new(col), data))
+                .map(|data| EdgeView::new(id, VertexId::new(col), data, ()))
         })
     }
 
@@ -89,6 +92,28 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         (0..self.size).flat_map(move |row| self.of(VertexId::new(row)))
     }
 
+    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
+        let (row, col) = (from.id(), to.id());
+        if row >= self.size || col >= self.size {
+            return None;
+        }
+        self.cells[row * self.size + col].as_ref()
+    }
+
+    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
+        self.get(from, to).is_some()
+    }
+
+    fn count(&self) -> usize {
+        self.edge_count
+    }
+
+    fn count_of(&self, id: VertexId<I>) -> usize {
+        self.of(id).count()
+    }
+}
+
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageMut for AdjMatrix<E, I> {
     fn add_edge(&mut self, from: VertexId<I>, to: VertexId<I>, data: E)
     where
         E: Clone,
@@ -109,22 +134,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
         removed
     }
 
-    fn get(&self, from: &VertexId<I>, to: &VertexId<I>) -> Option<&E> {
-        let (row, col) = (from.id(), to.id());
-        if row >= self.size || col >= self.size {
-            return None;
-        }
-        self.cells[row * self.size + col].as_ref()
-    }
-
-    fn has_edge(&self, from: &VertexId<I>, to: &VertexId<I>) -> bool {
-        self.get(from, to).is_some()
-    }
-
-    fn count(&self) -> usize {
-        self.edge_count
-    }
-
     fn with_capacity(capacity: usize) -> Self {
         Self::with_capacity(capacity)
     }
@@ -140,10 +149,6 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorage for A
             matrix.add_edge_directed(edge.from, edge.to, edge.data);
         }
         matrix
-    }
-
-    fn count_of(&self, id: VertexId<I>) -> usize {
-        self.of(id).count()
     }
 
     fn add_all(&mut self, from: VertexId<I>, edges: impl IntoIterator<Item = (VertexId<I>, E)>) {
@@ -179,7 +184,7 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
         rows.filter_map(move |row| {
             self.cells[row * self.size + col]
                 .as_ref()
-                .map(|data| EdgeView::new(VertexId::new(row), id, data))
+                .map(|data| EdgeView::new(VertexId::new(row), id, data, ()))
         })
     }
 
@@ -190,7 +195,11 @@ impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirect
     fn count_outgoing(&self, id: VertexId<I>) -> usize {
         self.count_of(id)
     }
+}
 
+impl<E: 'static + MaybeSerde, I: UnsignedId + MaybeSerde> GraphEdgeStorageDirectedMut
+    for AdjMatrix<E, I>
+{
     fn add_edge_directed(&mut self, from: VertexId<I>, to: VertexId<I>, data: E) {
         let (row, col) = (from.id(), to.id());
         self.ensure_size(row.max(col) + 1);
