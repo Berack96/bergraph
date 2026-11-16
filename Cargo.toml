@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/Berack96/bergraph"
 
 [workspace.dependencies]
-bergraph-derive = { path = "crates/bergraph-derive" }
+bergraph-derive = { path = "crates/bergraph-derive", version = "0.1.0" }
 
 # CI runs without incremental compilation: no cache is reused between runs, so
 # incremental only adds overhead there.
