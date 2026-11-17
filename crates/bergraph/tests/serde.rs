@@ -141,3 +141,53 @@ fn round_trips_a_static_csr_with_its_edge_data_ids_and_twins() {
     let edge: EdgeId<u32> = serde_json::from_str(&serde_json::to_string(&ids[1]).unwrap()).unwrap();
     assert_eq!(edge, ids[1]);
 }
+
+#[test]
+fn rebuilds_the_parents_of_a_deserialized_directed_csr() {
+    use bergraph::graph_edges::GraphEdgeStorageDirected;
+
+    let edges = [
+        (VertexId::new(0), VertexId::new(2), ()),
+        (VertexId::new(1), VertexId::new(2), ()),
+    ];
+    let (csr, _) = AdjCsr::<(), u32, u32>::directed(3, &edges).unwrap();
+
+    let restored: AdjCsr = serde_json::from_str(&serde_json::to_string(&csr).unwrap()).unwrap();
+
+    assert!(
+        csr.parents_of(VertexId::new(2))
+            .eq(restored.parents_of(VertexId::new(2)))
+    );
+}
+
+#[test]
+fn rejects_inconsistent_csr_arrays() {
+    let edges = [
+        (VertexId::new(0), VertexId::new(1), ()),
+        (VertexId::new(1), VertexId::new(2), ()),
+    ];
+    let (csr, _) = AdjCsr::<(), u32, u32>::undirected(3, &edges).unwrap();
+    let valid = serde_json::to_value(&csr).unwrap();
+    assert!(serde_json::from_value::<AdjCsr>(valid.clone()).is_ok());
+
+    // Vertex and edge ids serialize as `id + 1`.
+    let corruptions: [(&str, serde_json::Value); 5] = [
+        ("offsets", serde_json::json!([])),
+        ("offsets", serde_json::json!([0, 3, 2, 4, 4])),
+        ("targets", serde_json::json!([2, 1, 4, 2])),
+        ("data", serde_json::json!([null])),
+        ("twins", serde_json::json!([1, 2, 3, 4])),
+    ];
+    for (field, value) in corruptions {
+        let mut corrupted = valid.clone();
+        corrupted[field] = value;
+        assert!(
+            serde_json::from_value::<AdjCsr>(corrupted).is_err(),
+            "{field}"
+        );
+    }
+
+    // Two half-edges of one self-loop paired as twins, unlike the single one `undirected` stores.
+    let paired_loop = serde_json::json!({"offsets": [0, 2], "targets": [1, 1], "data": [null, null], "twins": [2, 1]});
+    assert!(serde_json::from_value::<AdjCsr>(paired_loop).is_err());
+}

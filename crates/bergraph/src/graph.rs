@@ -24,6 +24,9 @@ pub trait GraphView<V: 'static, S: GraphEdgeStorage> {
     /// [`vertex`](Self::vertex) returns `Some`. Used by whole-graph visits (connected
     /// components, SCC, ...) that need to enumerate vertices rather than start from one.
     fn ids(&self) -> impl Iterator<Item = VertexId<S::Id>>;
+
+    /// One past the highest vertex id of the underlying graph: every id the view exposes is below it.
+    fn id_bound(&self) -> usize;
 }
 
 #[derive(Clone, Debug)]
@@ -142,5 +145,9 @@ impl<V: 'static, S: GraphEdgeStorage> GraphView<V, S> for Graph<V, S> {
 
     fn ids(&self) -> impl Iterator<Item = VertexId<S::Id>> {
         (0..self.vertices.len()).map(VertexId::new)
+    }
+
+    fn id_bound(&self) -> usize {
+        self.vertices.len()
     }
 }

@@ -21,7 +21,8 @@ pub type DijkstraReaching<I> = Vec<(VertexId<I>, DijkstraReached<I>)>;
 
 /// Dijkstra expansion from several start vertices at once: every vertex is attributed to
 /// whichever source reaches it at the lowest total edge weight, a tie going to the path whose
-/// last step comes from the vertex finalized first (lower id on equal distance).
+/// last step comes from the vertex finalized first (lower id on equal distance). With a single
+/// source it gives the distances from it, e.g. the vertices within a radius when bounded.
 #[derive(Debug, Clone, Copy)]
 pub struct MultiSourceDijkstra {
     max_distance: f64,

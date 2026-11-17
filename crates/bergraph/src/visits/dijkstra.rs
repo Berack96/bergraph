@@ -4,10 +4,31 @@ use crate::{
     edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{MinEntry, SearchBuffers, VisitError, VisitResult, reconstruct_path},
+    visits::{MinEntry, SearchBuffers, VertexMarks, VisitError, VisitResult, reconstruct_path},
 };
 
-/// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
+/// Shortest paths from a start vertex to every vertex it reaches, from [`Dijkstra::visit_all`].
+#[derive(Debug)]
+pub struct ShortestPathTree<I: UnsignedId> {
+    distance: VertexMarks<Option<f64>>,
+    previous: VertexMarks<Option<VertexId<I>>>,
+}
+
+impl<I: UnsignedId> ShortestPathTree<I> {
+    /// Total weight of the shortest path to `vertex`, `None` if the start does not reach it.
+    pub fn distance(&self, vertex: VertexId<I>) -> Option<f64> {
+        *self.distance.get(vertex)
+    }
+
+    /// Vertex sequence of the shortest path from the start to `vertex`, `None` if unreached.
+    pub fn path_to(&self, vertex: VertexId<I>) -> Option<Vec<VertexId<I>>> {
+        self.distance(vertex)
+            .map(|_| reconstruct_path(vertex, &self.previous))
+    }
+}
+
+/// Shortest path from a start vertex to `target`: the vertex sequence and its total weight; see
+/// [`visit_all`](Self::visit_all) for the paths to every vertex.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Dijkstra<I: UnsignedId> {
     target: VertexId<I>,
@@ -49,36 +70,7 @@ impl<I: UnsignedId> Dijkstra<I> {
             return Err(VisitError::VertexNotFound);
         }
 
-        buffers.clear();
-        buffers.reach(start, 0.0, None, 0.0);
-
-        while let Some(MinEntry {
-            priority: distance,
-            vertex,
-        }) = buffers.heap.pop()
-        {
-            if vertex == self.target {
-                break;
-            }
-            if buffers
-                .distance
-                .get(vertex)
-                .is_some_and(|known| known < distance)
-            {
-                continue;
-            }
-
-            for edge in view.edges().of(vertex) {
-                let next_distance = distance + cost(&edge);
-                if buffers
-                    .distance
-                    .get(edge.to)
-                    .is_none_or(|known| next_distance < known)
-                {
-                    buffers.reach(edge.to, next_distance, Some(vertex), next_distance);
-                }
-            }
-        }
+        search(buffers, view, start, Some(self.target), cost);
 
         let Some(total) = *buffers.distance.get(self.target) else {
             return Ok(None);
@@ -87,5 +79,67 @@ impl<I: UnsignedId> Dijkstra<I> {
             reconstruct_path(self.target, &buffers.previous),
             total,
         )))
+    }
+
+    /// Shortest paths from `start` to every vertex it reaches, `cost` giving the non-negative
+    /// weight of each edge; for distances only, see [`MultiSourceDijkstra`](super::MultiSourceDijkstra).
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` is not in `view`.
+    pub fn visit_all<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<ShortestPathTree<I>> {
+        if view.vertex(start).is_none() {
+            return Err(VisitError::VertexNotFound);
+        }
+        let mut buffers = SearchBuffers::default();
+        search(&mut buffers, view, start, None, cost);
+        Ok(ShortestPathTree {
+            distance: buffers.distance,
+            previous: buffers.previous,
+        })
+    }
+}
+
+/// Settles vertices from `start` in distance order into `buffers`, until `target` if given.
+fn search<I: UnsignedId, V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+    buffers: &mut SearchBuffers<I>,
+    view: &G,
+    start: VertexId<I>,
+    target: Option<VertexId<I>>,
+    cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+) {
+    buffers.clear();
+    buffers.reach(start, 0.0, None, 0.0);
+
+    while let Some(MinEntry {
+        priority: distance,
+        vertex,
+    }) = buffers.heap.pop()
+    {
+        if Some(vertex) == target {
+            break;
+        }
+        if buffers
+            .distance
+            .get(vertex)
+            .is_some_and(|known| known < distance)
+        {
+            continue;
+        }
+
+        for edge in view.edges().of(vertex) {
+            let next_distance = distance + cost(&edge);
+            if buffers
+                .distance
+                .get(edge.to)
+                .is_none_or(|known| next_distance < known)
+            {
+                buffers.reach(edge.to, next_distance, Some(vertex), next_distance);
+            }
+        }
     }
 }

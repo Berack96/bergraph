@@ -62,4 +62,23 @@ mod test_builder {
         assert!(graph.vertex(VertexId::new(3)).is_some());
         assert!(graph.vertex(VertexId::new(4)).is_none());
     }
+
+    #[test]
+    fn builds_csr_with_the_vertex_count_of_the_vertices() {
+        use bergraph::graph_edges::{AdjCsr, CsrError, GraphEdgeStorage};
+
+        let edges = [(VertexId::new(0), VertexId::new(2), ())];
+        let (graph, ids): (bergraph::Graph<&str, AdjCsr>, _) = GraphBuilder::<&str, ()>::new()
+            .with_vertices(vec!["a", "b", "c"])
+            .build_csr_undirected(&edges)
+            .unwrap();
+        assert_eq!(graph.len(), 3);
+        assert_eq!(graph.edges().count(), 2);
+        assert_eq!(ids.len(), 1);
+
+        let too_short = GraphBuilder::<&str, ()>::new()
+            .with_vertices(vec!["a", "b"])
+            .build_csr_directed::<u32>(&edges);
+        assert_eq!(too_short.unwrap_err(), CsrError::VertexOutOfRange);
+    }
 }

@@ -71,4 +71,8 @@ where
             .map(VertexId::new)
             .filter(move |&id| self.vertex(id).is_some())
     }
+
+    fn id_bound(&self) -> usize {
+        self.graph.vertices.len()
+    }
 }

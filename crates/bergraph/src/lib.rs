@@ -48,7 +48,7 @@ pub mod graph_visit {
         DijkstraReached, DijkstraReaching, Eccentricities, Eccentricity, EulerianTrail, Flooded,
         Flooding, MaxFlow, MinCutEdges, MinimumSpanningTree, MstEdges, MultiSourceBfs,
         MultiSourceDijkstra, PriorityFlood, Reachability, Reached, Reaching, SccComponents,
-        SearchBuffers, StronglyConnectedComponents, TopologicalSort, TransitiveClosure, VisitError,
-        VisitResult,
+        SearchBuffers, ShortestPathTree, StronglyConnectedComponents, TopologicalSort,
+        TransitiveClosure, VisitError, VisitResult,
     };
 }

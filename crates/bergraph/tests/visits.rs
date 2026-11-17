@@ -227,6 +227,36 @@ fn dijkstra_finds_shortest_path() {
 }
 
 #[test]
+fn dijkstra_visit_all_gives_the_shortest_path_to_every_vertex() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge_directed(a, b, Km(5.0));
+    graph.edges_mut().add_edge_directed(a, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(c, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(d, a, Km(1.0));
+
+    let tree = Dijkstra::visit_all(&graph, a, |edge| edge.data.0).unwrap();
+    for target in [a, b, c] {
+        let (path, total) = Dijkstra::new(target)
+            .visit(&graph, a, |edge| edge.data.0)
+            .unwrap()
+            .unwrap();
+        assert_eq!(tree.path_to(target), Some(path));
+        assert_eq!(tree.distance(target), Some(total));
+    }
+    assert_eq!(tree.distance(d), None);
+    assert_eq!(tree.path_to(d), None);
+    let missing = bergraph::VertexId::new(9);
+    assert!(matches!(
+        Dijkstra::visit_all(&graph, missing, |edge| edge.data.0),
+        Err(VisitError::VertexNotFound)
+    ));
+}
+
+#[test]
 fn dijkstra_breaks_distance_ties_on_the_lower_vertex_id() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
@@ -497,6 +527,12 @@ fn connected_components_labels_each_vertex_with_the_first_of_its_component() {
     assert_eq!(
         ConnectedComponents.labels(&view),
         vec![Some(a), None, Some(a), Some(d)]
+    );
+    // A filtered-out last vertex still gets its slot.
+    let view = graph.filtered_view(|_, v: &&str| *v != "d", |_| true);
+    assert_eq!(
+        ConnectedComponents.labels(&view),
+        vec![Some(a), Some(b), Some(a), None]
     );
 }
 
