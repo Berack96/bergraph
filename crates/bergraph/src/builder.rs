@@ -4,9 +4,11 @@ use std::{
 };
 
 use crate::{
-    edges::{AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorageMut, MaybeSerde},
+    edges::{
+        AdjCsr, AdjList, AdjListFixed, AdjMatrix, CsrError, EdgeId, GraphEdgeStorageMut, MaybeSerde,
+    },
     graph::Graph,
-    vertices::UnsignedId,
+    vertices::{UnsignedId, VertexId},
 };
 
 /// Builds a [`Graph`], choosing its vertex id type `I` and its edge storage `S`, an [`AdjList`] by
@@ -100,5 +102,44 @@ where
         let vertices = self.vertices.unwrap_or_default();
         let size = vertices.len();
         Graph::new(vertices, S::with_capacity(size))
+    }
+}
+
+#[allow(private_bounds)]
+impl<V, E, I, S> GraphBuilder<V, E, I, S>
+where
+    E: Clone + 'static + MaybeSerde,
+    I: UnsignedId + MaybeSerde,
+{
+    /// Builds the graph on a directed [`AdjCsr`] over the given vertices, as
+    /// [`AdjCsr::directed`] with the vertex count taken from them; returns each input edge's id.
+    ///
+    /// # Errors
+    ///
+    /// The [`CsrError`] of [`AdjCsr::directed`].
+    #[allow(clippy::type_complexity)]
+    pub fn build_csr_directed<EI: UnsignedId + MaybeSerde>(
+        self,
+        edges: &[(VertexId<I>, VertexId<I>, E)],
+    ) -> Result<(Graph<V, AdjCsr<E, I, EI>>, Vec<EdgeId<EI>>), CsrError> {
+        let vertices = self.vertices.unwrap_or_default();
+        let (csr, ids) = AdjCsr::directed(vertices.len(), edges)?;
+        Ok((Graph::new(vertices, csr), ids))
+    }
+
+    /// Builds the graph on an undirected [`AdjCsr`] over the given vertices, as
+    /// [`AdjCsr::undirected`] with the vertex count taken from them; returns each input edge's id.
+    ///
+    /// # Errors
+    ///
+    /// The [`CsrError`] of [`AdjCsr::undirected`].
+    #[allow(clippy::type_complexity)]
+    pub fn build_csr_undirected<EI: UnsignedId + MaybeSerde>(
+        self,
+        edges: &[(VertexId<I>, VertexId<I>, E)],
+    ) -> Result<(Graph<V, AdjCsr<E, I, EI>>, Vec<EdgeId<EI>>), CsrError> {
+        let vertices = self.vertices.unwrap_or_default();
+        let (csr, ids) = AdjCsr::undirected(vertices.len(), edges)?;
+        Ok((Graph::new(vertices, csr), ids))
     }
 }
