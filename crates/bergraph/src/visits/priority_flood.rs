@@ -27,8 +27,11 @@ pub type Flooding<I> = Vec<(VertexId<I>, Flooded<I>)>;
 pub struct PriorityFlood;
 
 impl PriorityFlood {
-    /// Runs the visit; lists every reached vertex in the order it was flooded. Fails on a seed
-    /// missing from `view`.
+    /// Runs the visit; lists every reached vertex in the order it was flooded.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if a seed is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

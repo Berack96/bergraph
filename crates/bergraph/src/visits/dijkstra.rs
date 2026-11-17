@@ -34,6 +34,10 @@ impl<I: UnsignedId> Dijkstra<I> {
     }
 
     /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit_with<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         buffers: &mut SearchBuffers<I>,

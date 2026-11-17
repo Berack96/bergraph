@@ -46,6 +46,11 @@ impl std::error::Error for CsrError {}
 impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
     /// Directed graph with one edge per `(from, to, data)`; returns the id of each input edge,
     /// in order.
+    ///
+    /// # Errors
+    ///
+    /// [`CsrError::TooManyVertices`] or [`CsrError::TooManyEdges`] if a count does not fit its
+    /// index type, [`CsrError::VertexOutOfRange`] if an endpoint is not below `vertex_count`.
     pub fn directed(
         vertex_count: usize,
         edges: &[(VertexId<VI>, VertexId<VI>, E)],
@@ -58,6 +63,11 @@ impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
 
     /// Undirected graph: each edge becomes two twin half-edges with a copy of its data each, one
     /// for a self-loop; returns the id of each input `from -> to` half-edge, in order.
+    ///
+    /// # Errors
+    ///
+    /// [`CsrError::TooManyVertices`] or [`CsrError::TooManyEdges`] if a count does not fit its
+    /// index type, [`CsrError::VertexOutOfRange`] if an endpoint is not below `vertex_count`.
     pub fn undirected(
         vertex_count: usize,
         edges: &[(VertexId<VI>, VertexId<VI>, E)],

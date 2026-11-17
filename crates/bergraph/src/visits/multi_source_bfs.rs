@@ -29,7 +29,11 @@ pub struct MultiSourceBfs;
 
 impl MultiSourceBfs {
     /// Runs the visit; the result lists every reached vertex, sources first, in discovery
-    /// order. Fails if any `sources` vertex is missing from `view`.
+    /// order.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if a source is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

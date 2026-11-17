@@ -1,4 +1,7 @@
-use std::marker::PhantomData;
+use std::{
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData,
+};
 
 use crate::{
     edges::{AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorageMut, MaybeSerde},
@@ -6,12 +9,19 @@ use crate::{
     vertices::UnsignedId,
 };
 
-#[derive(Debug)]
 /// Builds a [`Graph`], choosing its vertex id type `I` and its edge storage `S`, an [`AdjList`] by
 /// default.
 pub struct GraphBuilder<V, E, I = u32, S = AdjList<E, I>> {
     vertices: Option<Vec<V>>,
     _marker: PhantomData<(V, E, I, S)>,
+}
+
+impl<V: Debug, E, I, S> Debug for GraphBuilder<V, E, I, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GraphBuilder")
+            .field("vertices", &self.vertices)
+            .finish_non_exhaustive()
+    }
 }
 
 // MaybeSerde is intentionally crate-internal (see its doc comment); it only shapes what
@@ -53,7 +63,7 @@ where
     I: UnsignedId + MaybeSerde,
     S: GraphEdgeStorageMut<Edge = E, Id = I>,
 {
-    /// Switch from the dynamic adjacency list to the fixed-capacity one, sized by a const generic.
+    /// Switches to the fixed-capacity adjacency list, with at most `N` outgoing edges per vertex.
     pub fn into_adjlist_fixed_max_degree<const N: usize>(
         self,
     ) -> GraphBuilder<V, E, I, AdjListFixed<E, I, N>> {

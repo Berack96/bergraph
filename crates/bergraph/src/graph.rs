@@ -45,6 +45,10 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
     }
 
     /// Adds a vertex with no edges and returns its id.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new vertex's id does not fit the id type.
     pub fn add_vertex(&mut self, vertex: V) -> VertexId<S::Id> {
         self.vertices.push(vertex);
         VertexId::new(self.vertices.len() - 1)

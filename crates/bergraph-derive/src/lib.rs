@@ -37,8 +37,8 @@ impl Parse for Overrides {
     }
 }
 
-/// Derives `Serialize`/`Deserialize` on a struct, or bounds a trait's generics and associated
-/// types by them, behind bergraph's `serde` feature; `Name = Bounds` replaces the bound of `Name`.
+/// With bergraph's `serde` feature, derives serde on a struct and bounds a trait's generics and
+/// associated types by serde; on a trait, `Name = Bounds` replaces that bound and applies always.
 #[proc_macro_attribute]
 pub fn serde_feature(args: TokenStream, input: TokenStream) -> TokenStream {
     let overrides = parse_macro_input!(args as Overrides);

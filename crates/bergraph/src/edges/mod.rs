@@ -44,9 +44,9 @@ pub trait GraphEdgeStorage {
     /// Identifies an edge in the [`EdgeView`]s: an [`EdgeId`] on storages with dense edge ids, `()` otherwise.
     type EdgeKey: Copy;
 
-    /// Every edge of the storage.
+    /// Every stored arc: an undirected edge appears once per endpoint, a self-loop once.
     fn all(&self) -> impl Iterator<Item = EdgeView<'_, Self::Edge, Self::Id, Self::EdgeKey>>;
-    /// Number of edges.
+    /// Number of stored arcs, as yielded by [`all`](Self::all).
     fn count(&self) -> usize;
 
     /// Edges leaving `id`: on an undirected storage, every edge touching it.
@@ -68,7 +68,8 @@ pub trait GraphEdgeStorage {
 pub trait GraphEdgeStorageMut: GraphEdgeStorage {
     /// Empty storage with room for `capacity` vertices.
     fn with_capacity(capacity: usize) -> Self;
-    /// Storage holding exactly `edges`, one arc per entry.
+    /// Storage holding `edges`, one arc per entry; a storage keeping one arc per vertex pair
+    /// keeps the last entry for that pair.
     fn with_edges(edges: Vec<Edge<Self::Edge, Self::Id>>) -> Self;
 
     /// Inserts an undirected edge: stored on both endpoints, so it is reachable from either
