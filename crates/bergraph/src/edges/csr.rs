@@ -178,7 +178,7 @@ impl<E: 'static + MaybeSerde, VI: UnsignedId + MaybeSerde, EI: UnsignedId + Mayb
     }
 
     fn has_edge(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> bool {
-        self.get(from, to).is_some()
+        self.range_of(*from).any(|edge| self.targets[edge] == *to)
     }
 }
 
