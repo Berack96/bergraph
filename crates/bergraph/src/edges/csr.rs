@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[cfg(feature = "serde")]
 use bergraph_derive::serde_feature;
 
@@ -9,6 +11,7 @@ use crate::{
 /// Static Compressed Sparse Row storage, built once from a full edge list. An edge's position in
 /// the packed arrays is its [`EdgeId`]; its data `E` is stored there too, free when `E = ()`.
 // shortcut: deserialization does not validate the arrays, so inconsistent input panics on use; add a validating `try_from` if graphs come from untrusted sources.
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjCsr<E = (), VI: UnsignedId = u32, EI: UnsignedId = u32> {
     offsets: Vec<EI>,
@@ -28,9 +31,26 @@ pub enum CsrError {
     VertexOutOfRange,
 }
 
+impl fmt::Display for CsrError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::TooManyVertices => "vertex count does not fit the vertex id type",
+            Self::TooManyEdges => "edge count does not fit the edge index type",
+            Self::VertexOutOfRange => "edge endpoint is not below the vertex count",
+        })
+    }
+}
+
+impl std::error::Error for CsrError {}
+
 impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
     /// Directed graph with one edge per `(from, to, data)`; returns the id of each input edge,
     /// in order.
+    ///
+    /// # Errors
+    ///
+    /// [`CsrError::TooManyVertices`] or [`CsrError::TooManyEdges`] if a count does not fit its
+    /// index type, [`CsrError::VertexOutOfRange`] if an endpoint is not below `vertex_count`.
     pub fn directed(
         vertex_count: usize,
         edges: &[(VertexId<VI>, VertexId<VI>, E)],
@@ -43,6 +63,11 @@ impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
 
     /// Undirected graph: each edge becomes two twin half-edges with a copy of its data each, one
     /// for a self-loop; returns the id of each input `from -> to` half-edge, in order.
+    ///
+    /// # Errors
+    ///
+    /// [`CsrError::TooManyVertices`] or [`CsrError::TooManyEdges`] if a count does not fit its
+    /// index type, [`CsrError::VertexOutOfRange`] if an endpoint is not below `vertex_count`.
     pub fn undirected(
         vertex_count: usize,
         edges: &[(VertexId<VI>, VertexId<VI>, E)],

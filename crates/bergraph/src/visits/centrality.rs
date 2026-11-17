@@ -17,6 +17,7 @@ pub type Centrality<I> = Vec<(VertexId<I>, f64)>;
 pub struct BetweennessCentrality;
 
 impl BetweennessCentrality {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

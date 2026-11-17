@@ -55,19 +55,33 @@ pub use simple_paths::AllSimplePaths;
 pub use topological_sort::TopologicalSort;
 pub use transitive_closure::{Reachability, TransitiveClosure};
 
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::{cmp::Ordering, collections::BinaryHeap, fmt};
 
 use crate::vertices::{UnsignedId, VertexId};
 
+/// Result of a visit.
 pub type VisitResult<T> = Result<T, VisitError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Why a visit could not run.
 pub enum VisitError {
+    /// A vertex the visit needs is not in the view.
     VertexNotFound,
     /// A negative-weight cycle is reachable from the start vertex, so no shortest path is
     /// well-defined: its cost can be driven arbitrarily low by looping through it.
     NegativeCycle,
 }
+
+impl fmt::Display for VisitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::VertexNotFound => "vertex not found in the graph view",
+            Self::NegativeCycle => "negative-weight cycle reachable from the start vertex",
+        })
+    }
+}
+
+impl std::error::Error for VisitError {}
 
 /// Visited/unvisited marker shared by the visits that don't need extra per-vertex data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,6 +92,7 @@ pub(crate) enum Mark {
 
 /// Per-vertex marking storage shared by visits, backed by a densely-indexed growable array.
 /// Each visit picks its own mark type `M` (a visited/unvisited enum, a distance, ...).
+#[derive(Debug)]
 pub struct VertexMarks<M> {
     marks: Vec<M>,
     default: M,
@@ -114,6 +129,7 @@ impl<M: Clone> VertexMarks<M> {
 
 /// Min-heap entry of the priority searches: smallest `priority` first (by `total_cmp`), ties
 /// broken by the lower vertex id, so the pop order never depends on the heap's internals.
+#[derive(Debug)]
 pub(crate) struct MinEntry<I: UnsignedId> {
     pub(crate) priority: f64,
     pub(crate) vertex: VertexId<I>,
@@ -142,6 +158,7 @@ impl<I: UnsignedId> Ord for MinEntry<I> {
 
 /// Per-vertex arrays and heap of the shortest-path searches, reusable across `visit_with` calls:
 /// each search resets only the vertices the previous one reached, not the whole graph.
+#[derive(Debug)]
 pub struct SearchBuffers<I: UnsignedId> {
     distance: VertexMarks<Option<f64>>,
     // The predecessor on a path search, the source on a multi-source search.

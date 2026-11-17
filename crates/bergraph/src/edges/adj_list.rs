@@ -9,13 +9,16 @@ use crate::{
     vertices::{UnsignedId, VertexId},
 };
 
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
+/// Growable adjacency list: each vertex keeps the target and data of its outgoing edges.
 pub struct AdjList<E, I: UnsignedId> {
     edges: Vec<Vec<EdgeSimple<E, I>>>,
     edge_count: usize,
 }
 
 impl<E: 'static, I: UnsignedId> AdjList<E, I> {
+    /// Empty storage.
     pub fn new() -> Self {
         Self {
             edges: Vec::new(),
@@ -23,6 +26,7 @@ impl<E: 'static, I: UnsignedId> AdjList<E, I> {
         }
     }
 
+    /// Empty storage with room for `capacity` vertices.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             edges: Vec::with_capacity(capacity),

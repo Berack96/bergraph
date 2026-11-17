@@ -18,10 +18,16 @@ pub struct AllSimplePaths<I: UnsignedId> {
 }
 
 impl<I: UnsignedId> AllSimplePaths<I> {
+    /// Search for every simple path to `target`.
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
 
+    /// Runs the visit from `start`.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorageDirected<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,

@@ -17,6 +17,7 @@ enum Color {
 pub struct CycleDetection;
 
 impl CycleDetection {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorageDirected, G: GraphView<V, S>>(
         &self,
         view: &G,

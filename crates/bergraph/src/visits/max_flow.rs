@@ -25,10 +25,17 @@ pub struct MaxFlow<I: UnsignedId> {
 }
 
 impl<I: UnsignedId> MaxFlow<I> {
+    /// Flow search towards `sink`.
     pub fn new(sink: VertexId<I>) -> Self {
         Self { sink }
     }
 
+    /// Runs the visit from the source `start`, edge capacities from
+    /// [`Weighted`](crate::graph_edges::Weighted).
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the sink is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorageDirected<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,

@@ -14,6 +14,11 @@ use crate::{
 pub struct Bfs;
 
 impl Bfs {
+    /// Vertices reachable from `start`, in breadth-first order.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

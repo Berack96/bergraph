@@ -1,6 +1,8 @@
 //! A* shortest-path visit, available for any graph, directed or undirected: Dijkstra guided
 //! by a heuristic estimate of the remaining distance to `target`.
 
+use std::fmt::{self, Debug, Formatter};
+
 use crate::{
     edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
@@ -16,15 +18,28 @@ pub struct AStar<I: UnsignedId, H> {
     heuristic: H,
 }
 
+impl<I: UnsignedId, H> Debug for AStar<I, H> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AStar")
+            .field("target", &self.target)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<I: UnsignedId, H> AStar<I, H>
 where
     H: Fn(VertexId<I>) -> f64,
 {
+    /// Search for `target`, guided by `heuristic`.
     pub fn new(target: VertexId<I>, heuristic: H) -> Self {
         Self { target, heuristic }
     }
 
     /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -35,6 +50,10 @@ where
     }
 
     /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit_with<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         buffers: &mut SearchBuffers<I>,

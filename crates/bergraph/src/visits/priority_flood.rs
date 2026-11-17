@@ -12,7 +12,9 @@ use crate::{
 /// Level a vertex is flooded at, and the vertex it was flooded from (`None` on a seed).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Flooded<I: UnsignedId> {
+    /// Level the vertex is flooded at.
     pub level: f64,
+    /// Vertex it was flooded from, `None` on a seed.
     pub from: Option<VertexId<I>>,
 }
 
@@ -25,8 +27,11 @@ pub type Flooding<I> = Vec<(VertexId<I>, Flooded<I>)>;
 pub struct PriorityFlood;
 
 impl PriorityFlood {
-    /// Runs the visit; lists every reached vertex in the order it was flooded. Fails on a seed
-    /// missing from `view`.
+    /// Runs the visit; lists every reached vertex in the order it was flooded.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if a seed is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

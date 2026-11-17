@@ -14,11 +14,16 @@ pub struct Dijkstra<I: UnsignedId> {
 }
 
 impl<I: UnsignedId> Dijkstra<I> {
+    /// Search for the shortest path to `target`.
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
 
     /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -29,6 +34,10 @@ impl<I: UnsignedId> Dijkstra<I> {
     }
 
     /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit_with<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         buffers: &mut SearchBuffers<I>,

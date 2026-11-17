@@ -10,7 +10,9 @@ use crate::{
 /// Total edge weight from, and identity of, the source that reaches a vertex at the lowest cost.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DijkstraReached<I: UnsignedId> {
+    /// Total edge weight from the source.
     pub distance: f64,
+    /// The source reaching the vertex at the lowest cost.
     pub source: VertexId<I>,
 }
 
@@ -33,7 +35,11 @@ impl MultiSourceDijkstra {
     }
 
     /// Runs the visit, `cost` giving the non-negative weight of each edge; lists every reached
-    /// vertex in the order its distance was finalized. Fails on a source missing from `view`.
+    /// vertex in the order its distance was finalized.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if a source is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -44,6 +50,10 @@ impl MultiSourceDijkstra {
     }
 
     /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if a source is not in `view`.
     pub fn visit_with<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         buffers: &mut SearchBuffers<S::Id>,

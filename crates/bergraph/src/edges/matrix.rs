@@ -19,6 +19,7 @@ use crate::{
 /// The trade-off is memory: O(V²) regardless of how many edges actually exist, and growing
 /// to a higher vertex id reallocates the whole grid (O(n²)). Good fit for dense graphs with a
 /// known-ish vertex count; wasteful for large sparse graphs, where `AdjList` fits better.
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjMatrix<E, I: UnsignedId> {
     cells: Vec<Option<E>>,
@@ -29,6 +30,7 @@ pub struct AdjMatrix<E, I: UnsignedId> {
 }
 
 impl<E: 'static, I: UnsignedId> AdjMatrix<E, I> {
+    /// Empty storage.
     pub fn new() -> Self {
         Self {
             cells: Vec::new(),
@@ -38,9 +40,8 @@ impl<E: 'static, I: UnsignedId> AdjMatrix<E, I> {
         }
     }
 
-    // `capacity` is the expected vertex count: the grid is allocated eagerly at
-    // `capacity * capacity` cells so building via a known vertex count (e.g. through
-    // `GraphBuilder::with_vertices`) never has to grow the matrix afterwards.
+    /// Storage with the `capacity * capacity` grid allocated upfront, so adding edges between the
+    /// first `capacity` vertices never grows it.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             cells: (0..capacity * capacity).map(|_| None).collect(),

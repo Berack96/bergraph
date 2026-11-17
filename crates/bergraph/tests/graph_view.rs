@@ -1,6 +1,6 @@
 use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageMut};
 use bergraph::graph_view::GraphView;
-use bergraph::{GraphBuilder, VertexId};
+use bergraph::{Graph, GraphBuilder, VertexId, graph_edges::AdjList};
 
 #[test]
 fn reads_vertices_from_a_graph_view() {
@@ -36,7 +36,7 @@ fn ids_skips_vertices_filtered_out_of_the_view() {
     let a = graph.add_vertex("a");
     let _b = graph.add_vertex("b");
     let c = graph.add_vertex("c");
-    let view = graph.filtered_view(|v: &&str| *v != "b", |_| true);
+    let view = graph.filtered_view(|_, v: &&str| *v != "b", |_| true);
 
     assert_eq!(view.ids().collect::<Vec<_>>(), vec![a, c]);
 }
@@ -54,7 +54,7 @@ fn is_empty_is_false_for_a_view_with_no_filter() {
 fn is_empty_is_true_when_the_filter_excludes_every_vertex() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     graph.add_vertex("a");
-    let view = graph.filtered_view(|_: &&str| false, |_| true);
+    let view = graph.filtered_view(|_, _: &&str| false, |_| true);
 
     assert!(view.is_empty());
 }
@@ -65,7 +65,7 @@ fn edges_of_a_vertex_exclude_arcs_reaching_a_vertex_excluded_by_the_filter() {
     let a = graph.add_vertex("a");
     let x = graph.add_vertex("x");
     graph.edges_mut().add_edge(a, x, ());
-    let view = graph.filtered_view(|v: &&str| *v != "x", |_| true);
+    let view = graph.filtered_view(|_, v: &&str| *v != "x", |_| true);
 
     assert_eq!(view.edges().of(a).count(), 0);
 }
@@ -75,7 +75,7 @@ fn is_empty_is_false_when_the_filter_keeps_at_least_one_vertex() {
     let mut graph = GraphBuilder::<&str, ()>::new().build();
     graph.add_vertex("a");
     graph.add_vertex("b");
-    let view = graph.filtered_view(|v: &&str| *v == "a", |_| true);
+    let view = graph.filtered_view(|_, v: &&str| *v == "a", |_| true);
 
     assert!(!view.is_empty());
 }
@@ -87,7 +87,7 @@ fn filter_accepts_a_closure_capturing_runtime_state() {
     let _b = graph.add_vertex("b");
     let c = graph.add_vertex("c");
     let excluded = String::from("b");
-    let view = graph.filtered_view(move |v: &&str| **v != excluded, |_| true);
+    let view = graph.filtered_view(move |_, v: &&str| **v != excluded, |_| true);
 
     assert_eq!(view.ids().collect::<Vec<_>>(), vec![a, c]);
 }
@@ -101,7 +101,7 @@ fn edge_filter_accepts_a_closure_capturing_runtime_state() {
     graph.edges_mut().add_edge(a, b, 1);
     graph.edges_mut().add_edge(a, c, 5);
     let threshold = 2;
-    let view = graph.filtered_view(|_| true, move |edge| *edge.data < threshold);
+    let view = graph.filtered_view(|_, _| true, move |edge| *edge.data < threshold);
 
     assert_eq!(view.edges().of(a).count(), 1);
 }
@@ -113,5 +113,37 @@ fn filtered_view_is_send_and_sync() {
     graph.add_vertex("a");
     let excluded = String::from("b");
 
-    assert_send_sync(&graph.filtered_view(move |v: &&str| *v != excluded, |_| true));
+    assert_send_sync(&graph.filtered_view(move |_, v: &&str| *v != excluded, |_| true));
+}
+
+#[test]
+fn filtered_view_debug_shows_the_graph_but_not_the_filters() {
+    let mut graph = GraphBuilder::<&str, i32>::new().build();
+    graph.add_vertex("a");
+
+    let debug = format!("{:?}", graph.filtered_view(|_, _| true, |_| true));
+    assert!(debug.starts_with("GraphFilteredView { graph: Graph {") && debug.ends_with(".. }"));
+}
+
+#[test]
+fn vertex_filter_reads_data_kept_outside_the_graph_by_vertex_id() {
+    let mut graph = GraphBuilder::<(), i32>::new().build();
+    let a = graph.add_vertex(());
+    let b = graph.add_vertex(());
+    let blocked = [false, true];
+
+    let view = graph.filtered_view(|id: VertexId<u32>, _| !blocked[id.id()], |_| true);
+    assert!(view.vertex(a).is_some());
+    assert!(view.vertex(b).is_none());
+}
+
+#[test]
+fn collects_and_extends_a_graph_from_vertices() {
+    let mut graph: Graph<&str, AdjList<(), u32>> = ["a", "b"].into_iter().collect();
+    graph.extend(["c"]);
+
+    assert_eq!(graph.len(), 3);
+    assert_eq!(graph.vertex(VertexId::new(2)), Some(&"c"));
+    assert_eq!(graph.edges().count(), 0);
+    assert!(Graph::<&str, AdjList<(), u32>>::default().is_empty());
 }

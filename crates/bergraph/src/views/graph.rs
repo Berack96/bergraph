@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use crate::{
     Graph, VertexId,
     edges::{EdgeView, GraphEdgeStorage},
@@ -12,11 +14,21 @@ pub struct GraphFilteredView<'a, V, S: GraphEdgeStorage, FV, FE> {
     edges: EdgeFilteredView<'a, V, S, FV, FE>,
 }
 
+impl<V: Debug, S: GraphEdgeStorage + Debug, FV, FE> Debug for GraphFilteredView<'_, V, S, FV, FE> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("GraphFilteredView")
+            .field("graph", &self.graph)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
+    /// View of `graph` keeping the vertices accepted by `filter_vertices` and the edges accepted by
+    /// `filter_edges` between them.
     pub fn new(graph: &'a Graph<V, S>, filter_vertices: FV, filter_edges: FE) -> Self {
         Self {
             graph,
@@ -33,7 +45,7 @@ where
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphView<V, EdgeFilteredView<'a, V, S, FV, FE>>
     for GraphFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     fn vertex(&self, id: VertexId<S::Id>) -> Option<&V> {

@@ -21,6 +21,7 @@ pub type MstEdges<I> = Vec<(VertexId<I>, VertexId<I>, f64)>;
 pub struct MinimumSpanningTree;
 
 impl MinimumSpanningTree {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

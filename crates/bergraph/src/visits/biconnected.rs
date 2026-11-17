@@ -17,6 +17,7 @@ type Edge<I> = (VertexId<I>, VertexId<I>);
 pub struct BiconnectedComponents;
 
 impl BiconnectedComponents {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
