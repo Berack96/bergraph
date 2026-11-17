@@ -10,17 +10,91 @@ use crate::{
 
 /// Static Compressed Sparse Row storage, built once from a full edge list. An edge's position in
 /// the packed arrays is its [`EdgeId`]; its data `E` is stored there too, free when `E = ()`.
-// shortcut: deserialization does not validate the arrays, so inconsistent input panics on use; add a validating `try_from` if graphs come from untrusted sources.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", serde_feature)]
+#[cfg_attr(feature = "serde", serde(try_from = "CsrArrays<E, VI, EI>"))]
 pub struct AdjCsr<E = (), VI: UnsignedId = u32, EI: UnsignedId = u32> {
     offsets: Vec<EI>,
     targets: Vec<VertexId<VI>>,
     data: Vec<E>,
     twins: Vec<EdgeId<EI>>,
     // Directed only: the incoming edges of each vertex, in edge id order, indexed like `offsets`.
+    #[cfg_attr(feature = "serde", serde(skip))]
     in_offsets: Vec<EI>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     in_edges: Vec<EdgeId<EI>>,
+}
+
+/// The serialized arrays of an [`AdjCsr`], checked by its `TryFrom` before they become one.
+#[cfg(feature = "serde")]
+#[derive(serde::Deserialize)]
+struct CsrArrays<E, VI: UnsignedId, EI: UnsignedId> {
+    offsets: Vec<EI>,
+    targets: Vec<VertexId<VI>>,
+    data: Vec<E>,
+    twins: Vec<EdgeId<EI>>,
+}
+
+#[cfg(feature = "serde")]
+impl<E, VI: UnsignedId, EI: UnsignedId> TryFrom<CsrArrays<E, VI, EI>> for AdjCsr<E, VI, EI> {
+    type Error = &'static str;
+
+    fn try_from(arrays: CsrArrays<E, VI, EI>) -> Result<Self, Self::Error> {
+        let CsrArrays {
+            offsets,
+            targets,
+            data,
+            twins,
+        } = arrays;
+        let vertex_count = offsets
+            .len()
+            .checked_sub(1)
+            .ok_or("csr offsets are empty")?;
+        if VI::try_from_usize(vertex_count).is_none() {
+            return Err("csr vertex count does not fit the vertex id type");
+        }
+        if offsets[0].to_usize() != 0
+            || offsets
+                .windows(2)
+                .any(|w| w[0].to_usize() > w[1].to_usize())
+            || offsets[vertex_count].to_usize() != targets.len()
+        {
+            return Err("csr offsets do not partition the edges");
+        }
+        if data.len() != targets.len() {
+            return Err("csr edge data and targets differ in length");
+        }
+        if targets.iter().any(|to| to.id() >= vertex_count) {
+            return Err("csr edge target is not below the vertex count");
+        }
+        if !twins.is_empty() {
+            // An involution where each twin points back at its edge's source makes every pair
+            // reverse half-edges of each other.
+            let consistent = twins.len() == targets.len()
+                && (0..vertex_count).all(|from| {
+                    Self::range_in(&offsets, VertexId::new(from)).all(|edge| {
+                        let twin = twins[edge].id();
+                        twin < twins.len() && twins[twin].id() == edge && targets[twin].id() == from
+                    })
+                });
+            if !consistent {
+                return Err("csr twins are not reverse half-edges of each other");
+            }
+        }
+        let (in_offsets, in_edges) = if twins.is_empty() {
+            Self::reverse_index(vertex_count, &targets)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        Ok(Self {
+            offsets,
+            targets,
+            data,
+            twins,
+            in_offsets,
+            in_edges,
+        })
+    }
 }
 
 /// Why an edge list cannot become an [`AdjCsr`].
