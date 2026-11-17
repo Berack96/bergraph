@@ -1,51 +1,16 @@
 //! A* shortest-path visit, available for any graph, directed or undirected: Dijkstra guided
 //! by a heuristic estimate of the remaining distance to `target`.
 
-use std::{cmp::Ordering, collections::BinaryHeap};
-
 use crate::{
-    edges::{GraphEdgeStorage, Weighted},
+    edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult, reconstruct_path},
+    visits::{MinEntry, SearchBuffers, VisitError, VisitResult, reconstruct_path},
 };
 
-#[derive(Debug, Clone, Copy)]
-enum Mark {
-    Unvisited,
-    Distance(f64),
-}
-
-struct HeapEntry<I: UnsignedId> {
-    priority: f64,
-    distance: f64,
-    vertex: VertexId<I>,
-}
-
-impl<I: UnsignedId> PartialEq for HeapEntry<I> {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other) == Ordering::Equal
-    }
-}
-impl<I: UnsignedId> Eq for HeapEntry<I> {}
-impl<I: UnsignedId> PartialOrd for HeapEntry<I> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl<I: UnsignedId> Ord for HeapEntry<I> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // Reversed: BinaryHeap is a max-heap, A* needs the smallest priority first, ties on id.
-        other
-            .priority
-            .total_cmp(&self.priority)
-            .then_with(|| other.vertex.cmp(&self.vertex))
-    }
-}
-
 /// Shortest path from a start vertex to `target`, guided by `heuristic`: an estimate of the
-/// remaining distance from a vertex to `target`. `heuristic` must never overestimate the true
-/// remaining distance (be admissible), or the returned path may not be the shortest.
+/// remaining distance from a vertex to `target`. `heuristic` must be pure and never overestimate
+/// the true remaining distance (be admissible), or the returned path may not be the shortest.
 pub struct AStar<I: UnsignedId, H> {
     target: VertexId<I>,
     heuristic: H,
@@ -58,67 +23,66 @@ where
     pub fn new(target: VertexId<I>, heuristic: H) -> Self {
         Self { target, heuristic }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage, H> ViewVisit<V, S> for AStar<S::Id, H>
-where
-    S::Edge: Weighted,
-    H: Fn(VertexId<S::Id>) -> f64,
-{
-    type Output = Option<(Vec<VertexId<S::Id>>, f64)>;
+    /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
+        self.visit_with(&mut SearchBuffers::default(), view, start, cost)
+    }
 
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+    /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    pub fn visit_with<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        buffers: &mut SearchBuffers<I>,
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }
 
-        let mut marks = VertexMarks::new(Mark::Unvisited);
-        let mut previous: VertexMarks<Option<VertexId<S::Id>>> = VertexMarks::new(None);
-        let mut heap = BinaryHeap::new();
+        buffers.clear();
+        buffers.reach(start, 0.0, None, (self.heuristic)(start));
 
-        marks.set(start, Mark::Distance(0.0));
-        heap.push(HeapEntry {
-            priority: (self.heuristic)(start),
-            distance: 0.0,
-            vertex: start,
-        });
-
-        while let Some(HeapEntry {
-            distance, vertex, ..
-        }) = heap.pop()
-        {
+        while let Some(MinEntry { priority, vertex }) = buffers.heap.pop() {
             if vertex == self.target {
                 break;
             }
-            if matches!(marks.get(vertex), Mark::Distance(known) if *known < distance) {
+            let distance = buffers
+                .distance
+                .get(vertex)
+                .expect("queued vertices are always reached");
+            // Stale entry: a shorter path to `vertex` was queued since, at a lower priority.
+            // shortcut: recomputes the heuristic on every pop; keep the distance in the heap
+            // entry if heuristics get expensive.
+            if priority > distance + (self.heuristic)(vertex) {
                 continue;
             }
 
             for edge in view.edges().of(vertex) {
-                let next_distance = distance + edge.data.weight();
-                let is_shorter = match marks.get(edge.to) {
-                    Mark::Unvisited => true,
-                    Mark::Distance(known) => next_distance < *known,
-                };
-                if is_shorter {
-                    marks.set(edge.to, Mark::Distance(next_distance));
-                    previous.set(edge.to, Some(vertex));
-                    heap.push(HeapEntry {
-                        priority: next_distance + (self.heuristic)(edge.to),
-                        distance: next_distance,
-                        vertex: edge.to,
-                    });
+                let next_distance = distance + cost(&edge);
+                if buffers
+                    .distance
+                    .get(edge.to)
+                    .is_none_or(|known| next_distance < known)
+                {
+                    let priority = next_distance + (self.heuristic)(edge.to);
+                    buffers.reach(edge.to, next_distance, Some(vertex), priority);
                 }
             }
         }
 
-        let Mark::Distance(total) = *marks.get(self.target) else {
+        let Some(total) = *buffers.distance.get(self.target) else {
             return Ok(None);
         };
-
-        Ok(Some((reconstruct_path(self.target, &previous), total)))
+        Ok(Some((
+            reconstruct_path(self.target, &buffers.previous),
+            total,
+        )))
     }
 }

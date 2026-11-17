@@ -5,34 +5,9 @@ use bergraph::graph_visit::{
     AStar, AllSimplePaths, ArticulationPoints, BellmanFord, BetweennessCentrality, Bfs, BfsToAny,
     BiconnectedComponents, Bipartite, Bridges, ConnectedComponents, CycleDetection, Dfs, Dijkstra,
     DijkstraReached, Eccentricity, EulerianTrail, Flooded, MaxFlow, MinimumSpanningTree,
-    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, StronglyConnectedComponents,
-    TopologicalSort, TransitiveClosure, ViewVisit, VisitError,
+    MultiSourceBfs, MultiSourceDijkstra, PriorityFlood, Reached, SearchBuffers,
+    StronglyConnectedComponents, TopologicalSort, TransitiveClosure, VisitError,
 };
-
-struct NoopVisitor;
-
-impl ViewVisit<String, AdjList<(), u32>> for NoopVisitor {
-    type Output = ();
-
-    fn visit<G>(
-        &self,
-        _view: &G,
-        _start: bergraph::VertexId<u32>,
-    ) -> bergraph::graph_visit::VisitResult<()>
-    where
-        G: GraphView<String, AdjList<(), u32>>,
-    {
-        Ok(())
-    }
-}
-
-#[test]
-fn visits_a_generic_graph_view() {
-    let mut graph = GraphBuilder::<String, ()>::new().build();
-    let a = graph.add_vertex("a".into());
-
-    assert_eq!(NoopVisitor.visit(&graph, a), Ok(()));
-}
 
 #[test]
 fn bfs_visits_reachable_vertices_in_order() {
@@ -1259,7 +1234,10 @@ fn astar_finds_shortest_path_with_an_admissible_heuristic() {
             1.0
         }
     };
-    let (path, total) = AStar::new(b, heuristic).visit(&graph, a).unwrap().unwrap();
+    let (path, total) = AStar::new(b, heuristic)
+        .visit(&graph, a, |edge| edge.data.0)
+        .unwrap()
+        .unwrap();
     assert_eq!(path, vec![a, c, b]);
     assert_eq!(total, 2.0);
 }
@@ -1270,7 +1248,12 @@ fn astar_returns_none_for_unreachable_target() {
     let a = graph.add_vertex("a");
     let b = graph.add_vertex("b");
 
-    assert_eq!(AStar::new(b, |_| 0.0).visit(&graph, a).unwrap(), None);
+    assert_eq!(
+        AStar::new(b, |_| 0.0)
+            .visit(&graph, a, |edge| edge.data.0)
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -1504,4 +1487,58 @@ fn priority_flood_never_refloods_a_seed_and_breaks_ties_on_the_lower_id() {
             (a, flooded(2.0, None)),
         ]
     );
+}
+
+#[test]
+fn search_buffers_reused_across_searches_give_the_same_results() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    graph.edges_mut().add_edge_directed(a, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(a, c, Km(5.0));
+    let cost = |edge: &bergraph::graph_view::EdgeView<'_, Km, u32>| edge.data.0;
+    let mut buffers = SearchBuffers::default();
+
+    let path = Dijkstra::new(c).visit_with(&mut buffers, &graph, a, cost);
+    assert_eq!(path, Dijkstra::new(c).visit(&graph, a, cost));
+    let near = MultiSourceDijkstra::new(1.0).visit_with(&mut buffers, &graph, [b], cost);
+    assert_eq!(near, MultiSourceDijkstra::new(1.0).visit(&graph, [b], cost));
+    let guided = AStar::new(c, |_| 0.0).visit_with(&mut buffers, &graph, a, cost);
+    assert_eq!(guided, path);
+    // Nothing reaches `a`: a distance left over from the searches above would report a path.
+    assert_eq!(
+        Dijkstra::new(a).visit_with(&mut buffers, &graph, c, cost),
+        Ok(None)
+    );
+    let missing = bergraph::VertexId::new(9);
+    let failed = MultiSourceDijkstra::new(f64::INFINITY).visit_with(
+        &mut buffers,
+        &graph,
+        [b, missing],
+        cost,
+    );
+    assert_eq!(failed, Err(VisitError::VertexNotFound));
+    assert_eq!(
+        Dijkstra::new(a).visit_with(&mut buffers, &graph, b, cost),
+        Ok(None)
+    );
+}
+
+#[test]
+fn a_star_skips_a_stale_queue_entry() {
+    let mut graph = GraphBuilder::<&str, Km>::new().build();
+    let a = graph.add_vertex("a");
+    let b = graph.add_vertex("b");
+    let c = graph.add_vertex("c");
+    let d = graph.add_vertex("d");
+    graph.edges_mut().add_edge_directed(a, b, Km(5.0));
+    graph.edges_mut().add_edge_directed(a, c, Km(1.0));
+    graph.edges_mut().add_edge_directed(c, b, Km(1.0));
+    graph.edges_mut().add_edge_directed(b, d, Km(10.0));
+
+    // b is queued at 5 then at 2: the entry at 5 pops before d and must be skipped.
+    let shortest = AStar::new(d, |_| 0.0).visit(&graph, a, |edge| edge.data.0);
+    assert_eq!(shortest, Ok(Some((vec![a, c, b, d], 12.0))));
 }

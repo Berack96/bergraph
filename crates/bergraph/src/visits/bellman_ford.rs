@@ -6,7 +6,7 @@ use crate::{
     edges::{GraphEdgeStorage, Weighted},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{VertexMarks, ViewVisit, VisitError, VisitResult, reconstruct_path},
+    visits::{VertexMarks, VisitError, VisitResult, reconstruct_path},
 };
 
 /// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
@@ -21,17 +21,14 @@ impl<I: UnsignedId> BellmanFord<I> {
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage> ViewVisit<V, S> for BellmanFord<S::Id>
-where
-    S::Edge: Weighted,
-{
-    type Output = Option<(Vec<VertexId<S::Id>>, f64)>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>>
     where
-        G: GraphView<V, S>,
+        S::Edge: Weighted,
     {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);

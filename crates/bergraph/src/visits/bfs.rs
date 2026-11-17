@@ -6,20 +6,19 @@ use crate::{
     edges::GraphEdgeStorage,
     graph::GraphView,
     vertices::VertexId,
-    visits::{Mark, VertexMarks, ViewVisit, VisitError, VisitResult},
+    visits::{Mark, VertexMarks, VisitError, VisitResult},
 };
 
 /// Breadth-first traversal from a start vertex, returning the vertices in visit order.
 #[derive(Debug, Clone, Copy)]
 pub struct Bfs;
 
-impl<V: 'static, S: GraphEdgeStorage> ViewVisit<V, S> for Bfs {
-    type Output = Vec<VertexId<S::Id>>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+impl Bfs {
+    pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<S::Id>,
+    ) -> VisitResult<Vec<VertexId<S::Id>>> {
         if view.vertex(start).is_none() {
             return Err(VisitError::VertexNotFound);
         }

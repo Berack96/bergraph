@@ -7,8 +7,11 @@ use crate::{
     edges::GraphEdgeStorage,
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{Mark, VertexMarks, ViewVisit, VisitError, VisitResult, reconstruct_path},
+    visits::{Mark, VertexMarks, VisitError, VisitResult, reconstruct_path},
 };
+
+/// Path to the reached target, and that target.
+type PathToTarget<I> = (Vec<VertexId<I>>, VertexId<I>);
 
 /// Unweighted shortest path from a start vertex to the first of `targets` a breadth-first
 /// search reaches, along with which target that was. Unlike [`Dijkstra`](crate::visits::Dijkstra)
@@ -24,15 +27,12 @@ impl<I: UnsignedId> BfsToAny<I> {
             targets: targets.into_iter().collect(),
         }
     }
-}
 
-impl<V: 'static, S: GraphEdgeStorage> ViewVisit<V, S> for BfsToAny<S::Id> {
-    type Output = Option<(Vec<VertexId<S::Id>>, VertexId<S::Id>)>;
-
-    fn visit<G>(&self, view: &G, start: VertexId<S::Id>) -> VisitResult<Self::Output>
-    where
-        G: GraphView<V, S>,
-    {
+    pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        view: &G,
+        start: VertexId<I>,
+    ) -> VisitResult<Option<PathToTarget<I>>> {
         if view.vertex(start).is_none() {
             return Err(VisitError::VertexNotFound);
         }

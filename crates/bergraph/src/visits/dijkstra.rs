@@ -1,19 +1,11 @@
 //! Dijkstra shortest-path visit, available for any graph, directed or undirected.
 
-use std::collections::BinaryHeap;
-
 use crate::{
     edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
     vertices::{UnsignedId, VertexId},
-    visits::{MinEntry, VertexMarks, VisitError, VisitResult},
+    visits::{MinEntry, SearchBuffers, VisitError, VisitResult, reconstruct_path},
 };
-
-#[derive(Debug, Clone, Copy)]
-enum Mark {
-    Unvisited,
-    Distance(f64),
-}
 
 /// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,59 +25,58 @@ impl<I: UnsignedId> Dijkstra<I> {
         start: VertexId<I>,
         cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
     ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
+        self.visit_with(&mut SearchBuffers::default(), view, start, cost)
+    }
+
+    /// Same as [`visit`](Self::visit), reusing `buffers` instead of allocating new ones.
+    pub fn visit_with<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
+        &self,
+        buffers: &mut SearchBuffers<I>,
+        view: &G,
+        start: VertexId<I>,
+        cost: impl Fn(&EdgeView<'_, S::Edge, I, S::EdgeKey>) -> f64,
+    ) -> VisitResult<Option<(Vec<VertexId<I>>, f64)>> {
         if view.vertex(start).is_none() || view.vertex(self.target).is_none() {
             return Err(VisitError::VertexNotFound);
         }
 
-        let mut marks = VertexMarks::new(Mark::Unvisited);
-        let mut previous: VertexMarks<Option<VertexId<S::Id>>> = VertexMarks::new(None);
-        let mut heap = BinaryHeap::new();
-
-        marks.set(start, Mark::Distance(0.0));
-        heap.push(MinEntry {
-            priority: 0.0,
-            vertex: start,
-        });
+        buffers.clear();
+        buffers.reach(start, 0.0, None, 0.0);
 
         while let Some(MinEntry {
             priority: distance,
             vertex,
-        }) = heap.pop()
+        }) = buffers.heap.pop()
         {
             if vertex == self.target {
                 break;
             }
-            if matches!(marks.get(vertex), Mark::Distance(known) if *known < distance) {
+            if buffers
+                .distance
+                .get(vertex)
+                .is_some_and(|known| known < distance)
+            {
                 continue;
             }
 
             for edge in view.edges().of(vertex) {
                 let next_distance = distance + cost(&edge);
-                let is_shorter = match marks.get(edge.to) {
-                    Mark::Unvisited => true,
-                    Mark::Distance(known) => next_distance < *known,
-                };
-                if is_shorter {
-                    marks.set(edge.to, Mark::Distance(next_distance));
-                    previous.set(edge.to, Some(vertex));
-                    heap.push(MinEntry {
-                        priority: next_distance,
-                        vertex: edge.to,
-                    });
+                if buffers
+                    .distance
+                    .get(edge.to)
+                    .is_none_or(|known| next_distance < known)
+                {
+                    buffers.reach(edge.to, next_distance, Some(vertex), next_distance);
                 }
             }
         }
 
-        let Mark::Distance(total) = *marks.get(self.target) else {
+        let Some(total) = *buffers.distance.get(self.target) else {
             return Ok(None);
         };
-
-        let mut path = vec![self.target];
-        while let Some(prev) = *previous.get(*path.last().unwrap()) {
-            path.push(prev);
-        }
-        path.reverse();
-
-        Ok(Some((path, total)))
+        Ok(Some((
+            reconstruct_path(self.target, &buffers.previous),
+            total,
+        )))
     }
 }
