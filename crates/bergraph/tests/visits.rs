@@ -498,6 +498,12 @@ fn connected_components_labels_each_vertex_with_the_first_of_its_component() {
         ConnectedComponents.labels(&view),
         vec![Some(a), None, Some(a), Some(d)]
     );
+    // A filtered-out last vertex still gets its slot.
+    let view = graph.filtered_view(|_, v: &&str| *v != "d", |_| true);
+    assert_eq!(
+        ConnectedComponents.labels(&view),
+        vec![Some(a), Some(b), Some(a), None]
+    );
 }
 
 #[test]

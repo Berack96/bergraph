@@ -53,7 +53,7 @@ impl ConnectedComponents {
     }
 
     /// Labels each vertex the view exposes with the first vertex of its component, in `ids`
-    /// order; indexed by vertex id, `None` or past the end outside the view.
+    /// order; indexed by vertex id up to [`id_bound`](GraphView::id_bound), `None` outside the view.
     pub fn labels<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -76,6 +76,10 @@ impl ConnectedComponents {
             }
         }
 
-        labels.marks
+        let mut labels = labels.marks;
+        if labels.len() < view.id_bound() {
+            labels.resize(view.id_bound(), None);
+        }
+        labels
     }
 }
