@@ -42,7 +42,7 @@ pub use centrality::{BetweennessCentrality, Centrality};
 pub use connected_components::{Components, ConnectedComponents};
 pub use cycle::CycleDetection;
 pub use dfs::Dfs;
-pub use dijkstra::Dijkstra;
+pub use dijkstra::{Dijkstra, ShortestPathTree};
 pub use eccentricity::{Eccentricities, Eccentricity};
 pub use eulerian::EulerianTrail;
 pub use max_flow::{MaxFlow, MinCutEdges};
