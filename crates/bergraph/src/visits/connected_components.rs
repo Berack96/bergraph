@@ -77,9 +77,7 @@ impl ConnectedComponents {
         }
 
         let mut labels = labels.marks;
-        if labels.len() < view.id_bound() {
-            labels.resize(view.id_bound(), None);
-        }
+        labels.resize(view.id_bound(), None);
         labels
     }
 }

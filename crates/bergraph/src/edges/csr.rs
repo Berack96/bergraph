@@ -69,12 +69,15 @@ impl<E, VI: UnsignedId, EI: UnsignedId> TryFrom<CsrArrays<E, VI, EI>> for AdjCsr
         }
         if !twins.is_empty() {
             // An involution where each twin points back at its edge's source makes every pair
-            // reverse half-edges of each other.
+            // reverse half-edges; a self-loop is its own twin. Twin data is not compared.
             let consistent = twins.len() == targets.len()
                 && (0..vertex_count).all(|from| {
                     Self::range_in(&offsets, VertexId::new(from)).all(|edge| {
                         let twin = twins[edge].id();
-                        twin < twins.len() && twins[twin].id() == edge && targets[twin].id() == from
+                        twin < twins.len()
+                            && twins[twin].id() == edge
+                            && targets[twin].id() == from
+                            && (targets[edge].id() != from || twin == edge)
                     })
                 });
             if !consistent {

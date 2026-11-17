@@ -186,4 +186,8 @@ fn rejects_inconsistent_csr_arrays() {
             "{field}"
         );
     }
+
+    // Two half-edges of one self-loop paired as twins, unlike the single one `undirected` stores.
+    let paired_loop = serde_json::json!({"offsets": [0, 2], "targets": [1, 1], "data": [null, null], "twins": [2, 1]});
+    assert!(serde_json::from_value::<AdjCsr>(paired_loop).is_err());
 }
