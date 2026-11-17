@@ -263,3 +263,20 @@ fn runs_the_weighted_visits_on_csr_edge_data() {
 
     assert_eq!(MinimumSpanningTree.visit(&graph).1, 2.0);
 }
+
+#[test]
+fn places_each_edge_data_on_its_own_edge_from_unsorted_input() {
+    let edges = [
+        (v(1), v(0), Km(1.0)),
+        (v(0), v(1), Km(2.0)),
+        (v(0), v(1), Km(3.0)),
+        (v(1), v(1), Km(4.0)),
+    ];
+    let (csr, ids) = AdjCsr::<Km>::directed(2, &edges).unwrap();
+
+    for (id, (from, to, data)) in ids.iter().zip(&edges) {
+        let edge = csr.all().find(|edge| edge.key == *id).unwrap();
+        assert_eq!((edge.from, edge.to, edge.data), (*from, *to, data));
+    }
+    assert_eq!(csr.get(&v(0), &v(1)), Some(&Km(2.0)));
+}
