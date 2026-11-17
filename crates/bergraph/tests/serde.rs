@@ -126,15 +126,15 @@ fn round_trips_a_graph_with_struct_vertex_and_edge_data() {
 }
 
 #[test]
-fn round_trips_a_static_csr_with_its_edge_ids_and_twins() {
+fn round_trips_a_static_csr_with_its_edge_data_ids_and_twins() {
     let edges = [
-        (VertexId::new(0), VertexId::new(1)),
-        (VertexId::new(1), VertexId::new(2)),
+        (VertexId::new(0), VertexId::new(1), 7u8),
+        (VertexId::new(1), VertexId::new(2), 9u8),
     ];
-    let (csr, ids) = AdjCsr::<u16, u32>::undirected(3, &edges).unwrap();
+    let (csr, ids) = AdjCsr::<u8, u16, u32>::undirected(3, &edges).unwrap();
 
     let json = serde_json::to_string(&csr).unwrap();
-    let restored: AdjCsr<u16, u32> = serde_json::from_str(&json).unwrap();
+    let restored: AdjCsr<u8, u16, u32> = serde_json::from_str(&json).unwrap();
 
     assert!(csr.all().eq(restored.all()));
     assert_eq!(restored.twin(ids[0]), csr.twin(ids[0]));

@@ -6,13 +6,14 @@ use crate::{
     vertices::{UnsignedId, VertexId},
 };
 
-/// Static Compressed Sparse Row storage, built once from a full edge list. No edge data: an
-/// edge's position in the packed array is its [`EdgeId`], so callers keep their data indexed by id.
+/// Static Compressed Sparse Row storage, built once from a full edge list. An edge's position in
+/// the packed arrays is its [`EdgeId`]; its data `E` is stored there too, free when `E = ()`.
 // shortcut: deserialization does not validate the arrays, so inconsistent input panics on use; add a validating `try_from` if graphs come from untrusted sources.
 #[cfg_attr(feature = "serde", serde_feature)]
-pub struct AdjCsr<VI: UnsignedId = u32, EI: UnsignedId = u32> {
+pub struct AdjCsr<E = (), VI: UnsignedId = u32, EI: UnsignedId = u32> {
     offsets: Vec<EI>,
     targets: Vec<VertexId<VI>>,
+    data: Vec<E>,
     twins: Vec<EdgeId<EI>>,
 }
 
@@ -27,21 +28,28 @@ pub enum CsrError {
     VertexOutOfRange,
 }
 
-impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
-    /// Directed graph with one edge per `(from, to)` pair; returns the id of each input edge, in order.
+impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
+    /// Directed graph with one edge per `(from, to, data)`; returns the id of each input edge,
+    /// in order.
     pub fn directed(
         vertex_count: usize,
-        edges: &[(VertexId<VI>, VertexId<VI>)],
-    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+        edges: &[(VertexId<VI>, VertexId<VI>, E)],
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError>
+    where
+        E: Clone,
+    {
         Self::build(vertex_count, edges, false)
     }
 
-    /// Undirected graph: each pair becomes two twin half-edges, one for a self-loop; returns the
-    /// id of each input `from -> to` half-edge, in order.
+    /// Undirected graph: each edge becomes two twin half-edges with a copy of its data each, one
+    /// for a self-loop; returns the id of each input `from -> to` half-edge, in order.
     pub fn undirected(
         vertex_count: usize,
-        edges: &[(VertexId<VI>, VertexId<VI>)],
-    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+        edges: &[(VertexId<VI>, VertexId<VI>, E)],
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError>
+    where
+        E: Clone,
+    {
         Self::build(vertex_count, edges, true)
     }
 
@@ -56,21 +64,24 @@ impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
 
     fn build(
         vertex_count: usize,
-        edges: &[(VertexId<VI>, VertexId<VI>)],
+        edges: &[(VertexId<VI>, VertexId<VI>, E)],
         undirected: bool,
-    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError> {
+    ) -> Result<(Self, Vec<EdgeId<EI>>), CsrError>
+    where
+        E: Clone,
+    {
         if VI::try_from_usize(vertex_count).is_none() || vertex_count == usize::MAX {
             return Err(CsrError::TooManyVertices);
         }
         if edges
             .iter()
-            .any(|(from, to)| from.id() >= vertex_count || to.id() >= vertex_count)
+            .any(|(from, to, _)| from.id() >= vertex_count || to.id() >= vertex_count)
         {
             return Err(CsrError::VertexOutOfRange);
         }
 
         let mut offsets = vec![0usize; vertex_count + 1];
-        for (from, to) in edges {
+        for (from, to, _) in edges {
             offsets[from.id() + 1] += 1;
             if undirected && from != to {
                 offsets[to.id() + 1] += 1;
@@ -84,10 +95,13 @@ impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
 
         let mut cursor = offsets.clone();
         let mut targets = vec![VertexId::new(0); edge_count];
-        let mut place = |from: VertexId<VI>, to: VertexId<VI>| {
+        // Input index of each half-edge, to copy its data into place once every edge is placed.
+        let mut inputs = vec![0; edge_count];
+        let mut place = |from: VertexId<VI>, to: VertexId<VI>, input: usize| {
             let edge = cursor[from.id()];
             cursor[from.id()] += 1;
             targets[edge] = to;
+            inputs[edge] = input;
             edge
         };
         let mut twins = if undirected {
@@ -96,10 +110,14 @@ impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
             Vec::new()
         };
         let mut ids = Vec::with_capacity(edges.len());
-        for &(from, to) in edges {
-            let forward = place(from, to);
+        for (input, &(from, to, _)) in edges.iter().enumerate() {
+            let forward = place(from, to, input);
             if undirected {
-                let backward = if from == to { forward } else { place(to, from) };
+                let backward = if from == to {
+                    forward
+                } else {
+                    place(to, from, input)
+                };
                 twins[forward] = EdgeId::new(backward);
                 twins[backward] = EdgeId::new(forward);
             }
@@ -110,9 +128,11 @@ impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
             .into_iter()
             .map(|offset| EI::try_from_usize(offset).expect("offsets never exceed the edge count"))
             .collect();
+        let data = inputs.iter().map(|&input| edges[input].2.clone()).collect();
         let csr = Self {
             offsets,
             targets,
+            data,
             twins,
         };
         Ok((csr, ids))
@@ -126,12 +146,14 @@ impl<VI: UnsignedId, EI: UnsignedId> AdjCsr<VI, EI> {
     }
 }
 
-impl<VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde> GraphEdgeStorage for AdjCsr<VI, EI> {
-    type Edge = ();
+impl<E: 'static + MaybeSerde, VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde>
+    GraphEdgeStorage for AdjCsr<E, VI, EI>
+{
+    type Edge = E;
     type Id = VI;
     type EdgeKey = EdgeId<EI>;
 
-    fn all(&self) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
+    fn all(&self) -> impl Iterator<Item = EdgeView<'_, E, VI, EdgeId<EI>>> {
         (0..self.vertex_count()).flat_map(move |from| self.of(VertexId::new(from)))
     }
 
@@ -139,38 +161,41 @@ impl<VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde> GraphEdgeStorage 
         self.targets.len()
     }
 
-    fn of(&self, id: VertexId<VI>) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
-        self.range_of(id)
-            .map(move |edge| EdgeView::new(id, self.targets[edge], &(), EdgeId::new(edge)))
+    fn of(&self, id: VertexId<VI>) -> impl Iterator<Item = EdgeView<'_, E, VI, EdgeId<EI>>> {
+        self.range_of(id).map(move |edge| {
+            EdgeView::new(id, self.targets[edge], &self.data[edge], EdgeId::new(edge))
+        })
     }
 
     fn count_of(&self, id: VertexId<VI>) -> usize {
         self.range_of(id).len()
     }
 
-    fn get(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> Option<&()> {
-        self.has_edge(from, to).then_some(&())
+    fn get(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> Option<&E> {
+        self.range_of(*from)
+            .find(|&edge| self.targets[edge] == *to)
+            .map(|edge| &self.data[edge])
     }
 
     fn has_edge(&self, from: &VertexId<VI>, to: &VertexId<VI>) -> bool {
-        self.range_of(*from).any(|edge| self.targets[edge] == *to)
+        self.get(from, to).is_some()
     }
 }
 
-impl<VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde> GraphEdgeStorageDirected
-    for AdjCsr<VI, EI>
+impl<E: 'static + MaybeSerde, VI: UnsignedId + MaybeSerde, EI: UnsignedId + MaybeSerde>
+    GraphEdgeStorageDirected for AdjCsr<E, VI, EI>
 {
     fn children_of(
         &self,
         id: VertexId<VI>,
-    ) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
+    ) -> impl Iterator<Item = EdgeView<'_, E, VI, EdgeId<EI>>> {
         self.of(id)
     }
 
     fn parents_of(
         &self,
         id: VertexId<VI>,
-    ) -> impl Iterator<Item = EdgeView<'_, (), VI, EdgeId<EI>>> {
+    ) -> impl Iterator<Item = EdgeView<'_, E, VI, EdgeId<EI>>> {
         self.all().filter(move |edge| edge.to == id)
     }
 

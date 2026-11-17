@@ -29,7 +29,7 @@ fn build_csr() -> AdjCsr {
         .flat_map(|from| {
             (0..EDGES_PER_VERTEX).map(move |offset| {
                 let to = (from + offset + 1) % VERTICES;
-                (VertexId::new(from), VertexId::new(to))
+                (VertexId::new(from), VertexId::new(to), ())
             })
         })
         .collect();
