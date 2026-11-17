@@ -4,7 +4,7 @@
 use bergraph_derive::serde_feature;
 
 use crate::{
-    edges::{EdgeView, GraphEdgeStorage},
+    edges::{EdgeView, GraphEdgeStorage, GraphEdgeStorageMut},
     vertices::VertexId,
     views::GraphFilteredView,
 };
@@ -82,6 +82,31 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
         FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
     {
         GraphFilteredView::new(self, filter_vertices, filter_edges)
+    }
+}
+
+impl<V, S: Default> Default for Graph<V, S> {
+    fn default() -> Self {
+        Self {
+            vertices: Vec::new(),
+            edge_storage: S::default(),
+        }
+    }
+}
+
+/// Graph over the collected vertices, with no edges yet.
+impl<V, S: GraphEdgeStorageMut> FromIterator<V> for Graph<V, S> {
+    fn from_iter<T: IntoIterator<Item = V>>(iter: T) -> Self {
+        let vertices: Vec<V> = iter.into_iter().collect();
+        let size = vertices.len();
+        Self::new(vertices, S::with_capacity(size))
+    }
+}
+
+/// Appends vertices, with no edges, the same as repeated [`add_vertex`](Graph::add_vertex).
+impl<V, S> Extend<V> for Graph<V, S> {
+    fn extend<T: IntoIterator<Item = V>>(&mut self, iter: T) {
+        self.vertices.extend(iter);
     }
 }
 

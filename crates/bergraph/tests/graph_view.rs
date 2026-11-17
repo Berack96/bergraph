@@ -1,6 +1,6 @@
 use bergraph::graph_edges::{GraphEdgeStorage, GraphEdgeStorageMut};
 use bergraph::graph_view::GraphView;
-use bergraph::{GraphBuilder, VertexId};
+use bergraph::{Graph, GraphBuilder, VertexId, graph_edges::AdjList};
 
 #[test]
 fn reads_vertices_from_a_graph_view() {
@@ -135,4 +135,15 @@ fn vertex_filter_reads_data_kept_outside_the_graph_by_vertex_id() {
     let view = graph.filtered_view(|id: VertexId<u32>, _| !blocked[id.id()], |_| true);
     assert!(view.vertex(a).is_some());
     assert!(view.vertex(b).is_none());
+}
+
+#[test]
+fn collects_and_extends_a_graph_from_vertices() {
+    let mut graph: Graph<&str, AdjList<(), u32>> = ["a", "b"].into_iter().collect();
+    graph.extend(["c"]);
+
+    assert_eq!(graph.len(), 3);
+    assert_eq!(graph.vertex(VertexId::new(2)), Some(&"c"));
+    assert_eq!(graph.edges().count(), 0);
+    assert!(Graph::<&str, AdjList<(), u32>>::default().is_empty());
 }
