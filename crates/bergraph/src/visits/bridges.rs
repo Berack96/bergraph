@@ -14,6 +14,7 @@ pub type BridgeEdges<I> = Vec<(VertexId<I>, VertexId<I>)>;
 pub struct Bridges;
 
 impl Bridges {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,
@@ -28,6 +29,7 @@ impl Bridges {
 pub struct ArticulationPoints;
 
 impl ArticulationPoints {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

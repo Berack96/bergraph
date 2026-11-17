@@ -30,11 +30,16 @@ impl<I: UnsignedId, H> AStar<I, H>
 where
     H: Fn(VertexId<I>) -> f64,
 {
+    /// Search for `target`, guided by `heuristic`.
     pub fn new(target: VertexId<I>, heuristic: H) -> Self {
         Self { target, heuristic }
     }
 
     /// Runs the visit from `start`, `cost` giving the non-negative weight of each edge.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,

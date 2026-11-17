@@ -12,7 +12,9 @@ use crate::{
 /// Distance from, and identity of, the source that reached a vertex first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Reached<I: UnsignedId> {
+    /// Number of edges from the source.
     pub distance: u32,
+    /// The source that reaches the vertex first.
     pub source: VertexId<I>,
 }
 

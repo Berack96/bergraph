@@ -59,10 +59,13 @@ use std::{cmp::Ordering, collections::BinaryHeap, fmt};
 
 use crate::vertices::{UnsignedId, VertexId};
 
+/// Result of a visit.
 pub type VisitResult<T> = Result<T, VisitError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Why a visit could not run.
 pub enum VisitError {
+    /// A vertex the visit needs is not in the view.
     VertexNotFound,
     /// A negative-weight cycle is reachable from the start vertex, so no shortest path is
     /// well-defined: its cost can be driven arbitrarily low by looping through it.

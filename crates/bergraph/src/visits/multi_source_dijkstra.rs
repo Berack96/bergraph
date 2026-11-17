@@ -10,7 +10,9 @@ use crate::{
 /// Total edge weight from, and identity of, the source that reaches a vertex at the lowest cost.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DijkstraReached<I: UnsignedId> {
+    /// Total edge weight from the source.
     pub distance: f64,
+    /// The source reaching the vertex at the lowest cost.
     pub source: VertexId<I>,
 }
 

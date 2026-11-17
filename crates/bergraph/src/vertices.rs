@@ -40,13 +40,21 @@ impl_unsigned_id!(u8, u16, u32, u64, u128, usize);
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", serde_feature)]
+/// Dense index of a vertex, `0..vertex_count`. Stored as `id + 1` in a `NonZero`, so
+/// `Option<VertexId>` costs no extra memory.
 pub struct VertexId<I: UnsignedId>(I::NonZero);
 
 impl<I: UnsignedId> VertexId<I> {
+    /// Vertex id of the dense index `id`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `id + 1` does not fit the id type `I`.
     pub fn new(id: usize) -> Self {
         Self(I::to_nz(id))
     }
 
+    /// The dense index of this vertex.
     pub fn id(&self) -> usize {
         I::from_nz(self.0)
     }

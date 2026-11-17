@@ -27,6 +27,8 @@ where
     FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
+    /// View of `graph` keeping the vertices accepted by `filter_vertices` and the edges accepted by
+    /// `filter_edges` between them.
     pub fn new(graph: &'a Graph<V, S>, filter_vertices: FV, filter_edges: FE) -> Self {
         Self {
             graph,

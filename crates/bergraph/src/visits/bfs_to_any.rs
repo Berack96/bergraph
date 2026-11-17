@@ -22,12 +22,18 @@ pub struct BfsToAny<I: UnsignedId> {
 }
 
 impl<I: UnsignedId> BfsToAny<I> {
+    /// Search for the nearest of `targets`.
     pub fn new(targets: impl IntoIterator<Item = VertexId<I>>) -> Self {
         Self {
             targets: targets.into_iter().collect(),
         }
     }
 
+    /// Runs the visit from `start`.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or any target is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,

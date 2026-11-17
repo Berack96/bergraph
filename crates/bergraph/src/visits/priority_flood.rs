@@ -12,7 +12,9 @@ use crate::{
 /// Level a vertex is flooded at, and the vertex it was flooded from (`None` on a seed).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Flooded<I: UnsignedId> {
+    /// Level the vertex is flooded at.
     pub level: f64,
+    /// Vertex it was flooded from, `None` on a seed.
     pub from: Option<VertexId<I>>,
 }
 

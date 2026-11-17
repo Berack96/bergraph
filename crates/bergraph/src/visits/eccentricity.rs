@@ -17,6 +17,7 @@ pub type Eccentricities<I> = Vec<(VertexId<I>, u32)>;
 pub struct Eccentricity;
 
 impl Eccentricity {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

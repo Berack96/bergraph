@@ -21,6 +21,7 @@ pub type SccComponents<I> = Vec<Vec<VertexId<I>>>;
 pub struct StronglyConnectedComponents;
 
 impl StronglyConnectedComponents {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorageDirected, G: GraphView<V, S>>(
         &self,
         view: &G,

@@ -9,11 +9,18 @@ use crate::{
 // Not `#[serde_feature]`: `[Option<EdgeSimple<E, I>>; N]` has a const-generic size N, and
 // serde's derive can't generate (de)serialize impls for an array whose size is generic.
 #[derive(Clone, Debug)]
+/// Adjacency list with at most `N` outgoing edges per vertex, stored inline without a per-vertex
+/// allocation.
+///
+/// # Panics
+///
+/// Adding an edge to a vertex that already has `N` outgoing edges panics.
 pub struct AdjListFixed<E, I: UnsignedId, const N: usize> {
     edges: Vec<[Option<EdgeSimple<E, I>>; N]>,
     edge_count: usize,
 }
 impl<E: 'static, I: UnsignedId, const N: usize> AdjListFixed<E, I, N> {
+    /// Empty storage.
     pub fn new() -> Self {
         Self {
             edges: Vec::new(),

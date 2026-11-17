@@ -22,6 +22,7 @@ pub type Bipartition<I> = (Vec<VertexId<I>>, Vec<VertexId<I>>);
 pub struct Bipartite;
 
 impl Bipartite {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

@@ -20,6 +20,7 @@ pub type Components<I> = Vec<Vec<VertexId<I>>>;
 pub struct ConnectedComponents;
 
 impl ConnectedComponents {
+    /// Runs the visit over the whole `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorage, G: GraphView<V, S>>(
         &self,
         view: &G,

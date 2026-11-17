@@ -9,10 +9,15 @@ use crate::{
     views::GraphFilteredView,
 };
 
+/// Read access to a graph's vertices and edges, implemented by [`Graph`] and its filtered views.
 pub trait GraphView<V: 'static, S: GraphEdgeStorage> {
+    /// Data of vertex `id`, `None` if it is not in the view.
     fn vertex(&self, id: VertexId<S::Id>) -> Option<&V>;
+    /// Number of vertices.
     fn len(&self) -> usize;
+    /// Whether the view has no vertices.
     fn is_empty(&self) -> bool;
+    /// Edge storage of the view.
     fn edges(&self) -> &S;
 
     /// Ids of every vertex the view exposes, i.e. exactly those for which
@@ -23,6 +28,7 @@ pub trait GraphView<V: 'static, S: GraphEdgeStorage> {
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
+/// Vertices with their data `V`, connected by the edges of the storage `S`.
 pub struct Graph<V, S> {
     pub(crate) vertices: Vec<V>,
     pub(crate) edge_storage: S,
@@ -38,15 +44,18 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
         }
     }
 
+    /// Adds a vertex with no edges and returns its id.
     pub fn add_vertex(&mut self, vertex: V) -> VertexId<S::Id> {
         self.vertices.push(vertex);
         VertexId::new(self.vertices.len() - 1)
     }
 
+    /// Mutable access to the edge storage.
     pub fn edges_mut(&mut self) -> &mut S {
         &mut self.edge_storage
     }
 
+    /// Mutable data of vertex `id`, `None` if it is absent.
     pub fn vertex_mut(&mut self, id: VertexId<S::Id>) -> Option<&mut V> {
         self.vertices.get_mut(id.id())
     }

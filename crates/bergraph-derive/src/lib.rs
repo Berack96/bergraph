@@ -1,4 +1,4 @@
-//! Derive macros for bergraph. Empty scaffold until a derive is actually needed.
+//! Attribute macros for bergraph.
 use proc_macro::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
@@ -37,6 +37,8 @@ impl Parse for Overrides {
     }
 }
 
+/// Derives `Serialize`/`Deserialize` on a struct, or bounds a trait's generics and associated
+/// types by them, behind bergraph's `serde` feature; `Name = Bounds` replaces the bound of `Name`.
 #[proc_macro_attribute]
 pub fn serde_feature(args: TokenStream, input: TokenStream) -> TokenStream {
     let overrides = parse_macro_input!(args as Overrides);

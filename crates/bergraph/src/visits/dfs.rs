@@ -13,6 +13,11 @@ use crate::{
 pub struct Dfs;
 
 impl Dfs {
+    /// Vertices reachable from `start` along outgoing edges, in depth-first order.
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` is not in `view`.
     pub fn visit<V: 'static, S: GraphEdgeStorageDirected, G: GraphView<V, S>>(
         &self,
         view: &G,

@@ -18,10 +18,17 @@ pub struct BellmanFord<I: UnsignedId> {
 type WeightedEdges<I> = Vec<(VertexId<I>, VertexId<I>, f64)>;
 
 impl<I: UnsignedId> BellmanFord<I> {
+    /// Search for the shortest path to `target`.
     pub fn new(target: VertexId<I>) -> Self {
         Self { target }
     }
 
+    /// Runs the visit from `start`, edge weights from [`Weighted`](crate::graph_edges::Weighted).
+    ///
+    /// # Errors
+    ///
+    /// [`VisitError::VertexNotFound`] if `start` or the target is not in `view`,
+    /// [`VisitError::NegativeCycle`] if a negative-weight cycle is reachable from `start`.
     pub fn visit<V: 'static, S: GraphEdgeStorage<Id = I>, G: GraphView<V, S>>(
         &self,
         view: &G,
