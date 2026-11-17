@@ -24,7 +24,7 @@ impl<V: Debug, S: GraphEdgeStorage + Debug, FV, FE> Debug for GraphFilteredView<
 
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     pub fn new(graph: &'a Graph<V, S>, filter_vertices: FV, filter_edges: FE) -> Self {
@@ -43,7 +43,7 @@ where
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphView<V, EdgeFilteredView<'a, V, S, FV, FE>>
     for GraphFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     fn vertex(&self, id: VertexId<S::Id>) -> Option<&V> {

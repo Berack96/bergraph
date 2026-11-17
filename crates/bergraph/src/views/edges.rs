@@ -24,7 +24,7 @@ impl<V: Debug, S: GraphEdgeStorage + Debug, FV, FE> Debug for EdgeFilteredView<'
 
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> EdgeFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     pub(crate) fn new(
@@ -47,7 +47,7 @@ where
     pub(crate) fn vertex_in_view(&self, id: VertexId<S::Id>) -> bool {
         self.vertices
             .get(id.id())
-            .is_some_and(|v| (self.filter_vertices)(v))
+            .is_some_and(|v| (self.filter_vertices)(id, v))
     }
 
     fn edge_in_view(&self, edge: &EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool {
@@ -58,7 +58,7 @@ where
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> GraphEdgeStorage
     for EdgeFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     type Edge = S::Edge;
@@ -104,7 +104,7 @@ where
 impl<'a, V: 'static, S: GraphEdgeStorageDirected, FV, FE> GraphEdgeStorageDirected
     for EdgeFilteredView<'a, V, S, FV, FE>
 where
-    FV: Fn(&V) -> bool,
+    FV: Fn(VertexId<S::Id>, &V) -> bool,
     FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
 {
     fn children_of(

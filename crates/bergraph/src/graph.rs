@@ -60,13 +60,13 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
         '_,
         V,
         S,
-        impl Fn(&V) -> bool,
+        impl Fn(VertexId<S::Id>, &V) -> bool,
         impl Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
     >
     where
         V: 'static,
     {
-        self.filtered_view(|_| true, |_| true)
+        self.filtered_view(|_, _| true, |_| true)
     }
 
     /// View of the vertices accepted by `filter_vertices` and the edges accepted by
@@ -78,7 +78,7 @@ impl<V, S: GraphEdgeStorage> Graph<V, S> {
     ) -> GraphFilteredView<'_, V, S, FV, FE>
     where
         V: 'static,
-        FV: Fn(&V) -> bool,
+        FV: Fn(VertexId<S::Id>, &V) -> bool,
         FE: Fn(&EdgeView<'_, S::Edge, S::Id, S::EdgeKey>) -> bool,
     {
         GraphFilteredView::new(self, filter_vertices, filter_edges)

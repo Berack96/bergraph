@@ -119,7 +119,7 @@ fn runs_the_visits_on_a_graph_over_a_csr() {
 
     assert_eq!(graph.len(), 3);
     assert_eq!(Bfs.visit(&graph, v(2)).unwrap(), vec![v(2), v(1), v(0)]);
-    let view = graph.filtered_view(|name: &&str| *name != "b", |_| true);
+    let view = graph.filtered_view(|_, name: &&str| *name != "b", |_| true);
     assert_eq!(Bfs.visit(&view, v(2)).unwrap(), vec![v(2)]);
 }
 
@@ -147,7 +147,7 @@ fn filters_csr_edges_by_edge_id() {
     let graph = Graph::new(vec!["a", "b", "c"], csr);
     let closed = graph.edges().twin(ids[1]).unwrap();
 
-    let view = graph.filtered_view(|_| true, |edge| edge.key != ids[1] && edge.key != closed);
+    let view = graph.filtered_view(|_, _| true, |edge| edge.key != ids[1] && edge.key != closed);
     assert_eq!(Bfs.visit(&view, v(0)).unwrap(), vec![v(0), v(1)]);
     assert!(!view.edges().has_edge(&v(1), &v(2)));
 }
