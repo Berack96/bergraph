@@ -11,7 +11,7 @@ use crate::{
 /// Static Compressed Sparse Row storage, built once from a full edge list. An edge's position in
 /// the packed arrays is its [`EdgeId`]; its data `E` is stored there too, free when `E = ()`.
 // shortcut: deserialization does not validate the arrays, so inconsistent input panics on use; add a validating `try_from` if graphs come from untrusted sources.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjCsr<E = (), VI: UnsignedId = u32, EI: UnsignedId = u32> {
     offsets: Vec<EI>,
