@@ -18,6 +18,9 @@ pub struct AdjCsr<E = (), VI: UnsignedId = u32, EI: UnsignedId = u32> {
     targets: Vec<VertexId<VI>>,
     data: Vec<E>,
     twins: Vec<EdgeId<EI>>,
+    // Directed only: the incoming edges of each vertex, in edge id order, indexed like `offsets`.
+    in_offsets: Vec<EI>,
+    in_edges: Vec<EdgeId<EI>>,
 }
 
 /// Why an edge list cannot become an [`AdjCsr`].
@@ -154,17 +157,59 @@ impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
             .map(|offset| EI::try_from_usize(offset).expect("offsets never exceed the edge count"))
             .collect();
         let data = inputs.iter().map(|&input| edges[input].2.clone()).collect();
+        let (in_offsets, in_edges) = if undirected {
+            (Vec::new(), Vec::new())
+        } else {
+            Self::reverse_index(vertex_count, &targets)
+        };
         let csr = Self {
             offsets,
             targets,
             data,
             twins,
+            in_offsets,
+            in_edges,
         };
         Ok((csr, ids))
     }
 
+    /// Counting sort of the edge ids by target: the incoming edges of each vertex, in id order.
+    fn reverse_index(vertex_count: usize, targets: &[VertexId<VI>]) -> (Vec<EI>, Vec<EdgeId<EI>>) {
+        let mut offsets = vec![0usize; vertex_count + 1];
+        for to in targets {
+            offsets[to.id() + 1] += 1;
+        }
+        for i in 1..offsets.len() {
+            offsets[i] += offsets[i - 1];
+        }
+        let mut cursor = offsets.clone();
+        let mut edges = vec![EdgeId::new(0); targets.len()];
+        for (edge, to) in targets.iter().enumerate() {
+            edges[cursor[to.id()]] = EdgeId::new(edge);
+            cursor[to.id()] += 1;
+        }
+        let offsets = offsets
+            .into_iter()
+            .map(|offset| EI::try_from_usize(offset).expect("offsets never exceed the edge count"))
+            .collect();
+        (offsets, edges)
+    }
+
+    /// The vertex whose outgoing range holds `edge`.
+    fn source_of(&self, edge: usize) -> VertexId<VI> {
+        VertexId::new(
+            self.offsets
+                .partition_point(|offset| offset.to_usize() <= edge)
+                - 1,
+        )
+    }
+
     fn range_of(&self, id: VertexId<VI>) -> std::ops::Range<usize> {
-        match (self.offsets.get(id.id()), self.offsets.get(id.id() + 1)) {
+        Self::range_in(&self.offsets, id)
+    }
+
+    fn range_in(offsets: &[EI], id: VertexId<VI>) -> std::ops::Range<usize> {
+        match (offsets.get(id.id()), offsets.get(id.id() + 1)) {
             (Some(start), Some(end)) => start.to_usize()..end.to_usize(),
             _ => 0..0,
         }
@@ -217,15 +262,33 @@ impl<E: 'static + MaybeSerde, VI: UnsignedId + MaybeSerde, EI: UnsignedId + Mayb
         self.of(id)
     }
 
+    /// The incoming edges of `id`: in edge id order on a directed graph, in the order of
+    /// [`of`](GraphEdgeStorage::of) on an undirected one, where they are the twins of its outgoing edges.
     fn parents_of(
         &self,
         id: VertexId<VI>,
     ) -> impl Iterator<Item = EdgeView<'_, E, VI, EdgeId<EI>>> {
-        self.all().filter(move |edge| edge.to == id)
+        // Exactly one of the two is non-empty: the reverse index is built only without twins.
+        let directed = self.in_edges[Self::range_in(&self.in_offsets, id)]
+            .iter()
+            .map(|edge| (edge.id(), self.source_of(edge.id())));
+        let twins = if self.twins.is_empty() {
+            0..0
+        } else {
+            self.range_of(id)
+        }
+        .map(|edge| (self.twins[edge].id(), self.targets[edge]));
+        directed
+            .chain(twins)
+            .map(move |(edge, from)| EdgeView::new(from, id, &self.data[edge], EdgeId::new(edge)))
     }
 
     fn count_incoming(&self, id: VertexId<VI>) -> usize {
-        self.parents_of(id).count()
+        if self.twins.is_empty() {
+            Self::range_in(&self.in_offsets, id).len()
+        } else {
+            self.count_of(id)
+        }
     }
 
     fn count_outgoing(&self, id: VertexId<VI>) -> usize {

@@ -98,8 +98,39 @@ fn lists_all_edges_in_edge_id_order() {
 
     let keys: Vec<_> = csr.all().map(|edge| edge.key.id()).collect();
     assert_eq!(keys, (0..csr.count()).collect::<Vec<_>>());
+    // Undirected: the parents follow the order of the vertex's own edges.
     let parents: Vec<_> = csr.parents_of(v(0)).map(|edge| edge.from.id()).collect();
-    assert_eq!(parents, vec![1, 2]);
+    assert_eq!(parents, vec![2, 1]);
+}
+
+#[test]
+fn lists_parents_with_the_key_of_the_incoming_edge() {
+    let edges = [
+        (v(3), v(1), ()),
+        (v(0), v(1), ()),
+        (v(1), v(1), ()),
+        (v(3), v(0), ()),
+    ];
+    let (directed, _) = AdjCsr::<(), u32, u32>::directed(4, &edges).unwrap();
+    let (undirected, _) = AdjCsr::<(), u32, u32>::undirected(4, &edges).unwrap();
+
+    for csr in [&directed, &undirected] {
+        for id in 0..4 {
+            let mut fast: Vec<_> = csr
+                .parents_of(v(id))
+                .map(|e| (e.from, e.to, e.key))
+                .collect();
+            let mut scan: Vec<_> = csr
+                .all()
+                .filter(|e| e.to == v(id))
+                .map(|e| (e.from, e.to, e.key))
+                .collect();
+            fast.sort();
+            scan.sort();
+            assert_eq!(fast, scan);
+            assert_eq!(csr.count_incoming(v(id)), scan.len());
+        }
+    }
 }
 
 #[test]
