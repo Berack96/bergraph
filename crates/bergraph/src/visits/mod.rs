@@ -55,7 +55,7 @@ pub use simple_paths::AllSimplePaths;
 pub use topological_sort::TopologicalSort;
 pub use transitive_closure::{Reachability, TransitiveClosure};
 
-use std::{cmp::Ordering, collections::BinaryHeap};
+use std::{cmp::Ordering, collections::BinaryHeap, fmt};
 
 use crate::vertices::{UnsignedId, VertexId};
 
@@ -68,6 +68,17 @@ pub enum VisitError {
     /// well-defined: its cost can be driven arbitrarily low by looping through it.
     NegativeCycle,
 }
+
+impl fmt::Display for VisitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::VertexNotFound => "vertex not found in the graph view",
+            Self::NegativeCycle => "negative-weight cycle reachable from the start vertex",
+        })
+    }
+}
+
+impl std::error::Error for VisitError {}
 
 /// Visited/unvisited marker shared by the visits that don't need extra per-vertex data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

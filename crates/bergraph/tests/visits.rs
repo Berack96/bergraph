@@ -1542,3 +1542,14 @@ fn a_star_skips_a_stale_queue_entry() {
     let shortest = AStar::new(d, |_| 0.0).visit(&graph, a, |edge| edge.data.0);
     assert_eq!(shortest, Ok(Some((vec![a, c, b, d], 12.0))));
 }
+
+#[test]
+fn visit_error_propagates_into_a_boxed_error() {
+    fn first_reached() -> Result<usize, Box<dyn std::error::Error>> {
+        let graph = GraphBuilder::<&str, ()>::new().build();
+        Ok(Bfs.visit(&graph, bergraph::VertexId::new(0))?.len())
+    }
+
+    let error = first_reached().unwrap_err();
+    assert_eq!(error.to_string(), "vertex not found in the graph view");
+}

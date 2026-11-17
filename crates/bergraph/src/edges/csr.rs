@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[cfg(feature = "serde")]
 use bergraph_derive::serde_feature;
 
@@ -28,6 +30,18 @@ pub enum CsrError {
     /// An edge endpoint is not below the vertex count.
     VertexOutOfRange,
 }
+
+impl fmt::Display for CsrError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::TooManyVertices => "vertex count does not fit the vertex id type",
+            Self::TooManyEdges => "edge count does not fit the edge index type",
+            Self::VertexOutOfRange => "edge endpoint is not below the vertex count",
+        })
+    }
+}
+
+impl std::error::Error for CsrError {}
 
 impl<E, VI: UnsignedId, EI: UnsignedId> AdjCsr<E, VI, EI> {
     /// Directed graph with one edge per `(from, to, data)`; returns the id of each input edge,
