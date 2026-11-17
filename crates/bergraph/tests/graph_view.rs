@@ -115,3 +115,12 @@ fn filtered_view_is_send_and_sync() {
 
     assert_send_sync(&graph.filtered_view(move |v: &&str| *v != excluded, |_| true));
 }
+
+#[test]
+fn filtered_view_debug_shows_the_graph_but_not_the_filters() {
+    let mut graph = GraphBuilder::<&str, i32>::new().build();
+    graph.add_vertex("a");
+
+    let debug = format!("{:?}", graph.filtered_view(|_| true, |_| true));
+    assert!(debug.starts_with("GraphFilteredView { graph: Graph {") && debug.ends_with(".. }"));
+}

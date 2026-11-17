@@ -78,6 +78,7 @@ pub(crate) enum Mark {
 
 /// Per-vertex marking storage shared by visits, backed by a densely-indexed growable array.
 /// Each visit picks its own mark type `M` (a visited/unvisited enum, a distance, ...).
+#[derive(Debug)]
 pub struct VertexMarks<M> {
     marks: Vec<M>,
     default: M,
@@ -114,6 +115,7 @@ impl<M: Clone> VertexMarks<M> {
 
 /// Min-heap entry of the priority searches: smallest `priority` first (by `total_cmp`), ties
 /// broken by the lower vertex id, so the pop order never depends on the heap's internals.
+#[derive(Debug)]
 pub(crate) struct MinEntry<I: UnsignedId> {
     pub(crate) priority: f64,
     pub(crate) vertex: VertexId<I>,
@@ -142,6 +144,7 @@ impl<I: UnsignedId> Ord for MinEntry<I> {
 
 /// Per-vertex arrays and heap of the shortest-path searches, reusable across `visit_with` calls:
 /// each search resets only the vertices the previous one reached, not the whole graph.
+#[derive(Debug)]
 pub struct SearchBuffers<I: UnsignedId> {
     distance: VertexMarks<Option<f64>>,
     // The predecessor on a path search, the source on a multi-source search.

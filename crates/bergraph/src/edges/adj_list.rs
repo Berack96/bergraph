@@ -9,6 +9,7 @@ use crate::{
     vertices::{UnsignedId, VertexId},
 };
 
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjList<E, I: UnsignedId> {
     edges: Vec<Vec<EdgeSimple<E, I>>>,

@@ -6,6 +6,7 @@ use crate::{
     vertices::UnsignedId,
 };
 
+#[derive(Debug)]
 pub struct GraphBuilder<V, E, I = u32, S = AdjList<E, I>> {
     vertices: Option<Vec<V>>,
     _marker: PhantomData<(V, E, I, S)>,

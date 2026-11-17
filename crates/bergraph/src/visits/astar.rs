@@ -1,6 +1,8 @@
 //! A* shortest-path visit, available for any graph, directed or undirected: Dijkstra guided
 //! by a heuristic estimate of the remaining distance to `target`.
 
+use std::fmt::{self, Debug, Formatter};
+
 use crate::{
     edges::{EdgeView, GraphEdgeStorage},
     graph::GraphView,
@@ -14,6 +16,14 @@ use crate::{
 pub struct AStar<I: UnsignedId, H> {
     target: VertexId<I>,
     heuristic: H,
+}
+
+impl<I: UnsignedId, H> Debug for AStar<I, H> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AStar")
+            .field("target", &self.target)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<I: UnsignedId, H> AStar<I, H>

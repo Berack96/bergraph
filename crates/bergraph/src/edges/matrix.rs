@@ -19,6 +19,7 @@ use crate::{
 /// The trade-off is memory: O(V²) regardless of how many edges actually exist, and growing
 /// to a higher vertex id reallocates the whole grid (O(n²)). Good fit for dense graphs with a
 /// known-ish vertex count; wasteful for large sparse graphs, where `AdjList` fits better.
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", serde_feature)]
 pub struct AdjMatrix<E, I: UnsignedId> {
     cells: Vec<Option<E>>,

@@ -1,3 +1,5 @@
+use std::fmt::{self, Debug, Formatter};
+
 use crate::{
     VertexId,
     edges::{EdgeView, GraphEdgeStorage, GraphEdgeStorageDirected},
@@ -9,6 +11,15 @@ pub struct EdgeFilteredView<'a, V, S: GraphEdgeStorage, FV, FE> {
     filter_edges: FE,
     vertices: &'a [V],
     filter_vertices: FV,
+}
+
+impl<V: Debug, S: GraphEdgeStorage + Debug, FV, FE> Debug for EdgeFilteredView<'_, V, S, FV, FE> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("EdgeFilteredView")
+            .field("edge_storage", &self.edge_storage)
+            .field("vertices", &self.vertices)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a, V: 'static, S: GraphEdgeStorage, FV, FE> EdgeFilteredView<'a, V, S, FV, FE>
