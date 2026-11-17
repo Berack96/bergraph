@@ -1,8 +1,11 @@
 use bergraph::{
     EdgeId, Graph, VertexId,
-    graph_edges::{AdjCsr, CsrError, GraphEdgeStorage, GraphEdgeStorageDirected},
+    graph_edges::{AdjCsr, CsrError, GraphEdgeStorage, GraphEdgeStorageDirected, Weighted},
     graph_view::GraphView,
-    graph_visit::{ArticulationPoints, Bfs, Bridges, Dijkstra, StronglyConnectedComponents},
+    graph_visit::{
+        ArticulationPoints, Bfs, Bridges, Dijkstra, MinimumSpanningTree,
+        StronglyConnectedComponents,
+    },
 };
 
 fn v(id: usize) -> VertexId<u32> {
@@ -20,8 +23,11 @@ fn neighbors<S: GraphEdgeStorage<Edge = (), EdgeKey = EdgeId<u32>>>(
 
 #[test]
 fn builds_a_directed_graph_with_edge_ids_grouped_by_source() {
-    let (csr, ids) =
-        AdjCsr::<u32, u32>::directed(3, &[(v(1), v(2)), (v(0), v(1)), (v(1), v(0))]).unwrap();
+    let (csr, ids) = AdjCsr::<(), u32, u32>::directed(
+        3,
+        &[(v(1), v(2), ()), (v(0), v(1), ()), (v(1), v(0), ())],
+    )
+    .unwrap();
 
     assert_eq!(csr.count(), 3);
     assert_eq!(ids, vec![EdgeId::new(1), EdgeId::new(0), EdgeId::new(2)]);
@@ -35,7 +41,8 @@ fn builds_a_directed_graph_with_edge_ids_grouped_by_source() {
 
 #[test]
 fn navigates_parents_and_children() {
-    let (csr, _) = AdjCsr::<u32, u32>::directed(3, &[(v(0), v(2)), (v(1), v(2))]).unwrap();
+    let (csr, _) =
+        AdjCsr::<(), u32, u32>::directed(3, &[(v(0), v(2), ()), (v(1), v(2), ())]).unwrap();
 
     let parents: Vec<_> = csr.parents_of(v(2)).map(|edge| edge.from.id()).collect();
     assert_eq!(parents, vec![0, 1]);
@@ -46,8 +53,11 @@ fn navigates_parents_and_children() {
 
 #[test]
 fn builds_an_undirected_graph_with_twin_half_edges() {
-    let (csr, ids) =
-        AdjCsr::<u32, u32>::undirected(3, &[(v(0), v(1)), (v(1), v(2)), (v(2), v(2))]).unwrap();
+    let (csr, ids) = AdjCsr::<(), u32, u32>::undirected(
+        3,
+        &[(v(0), v(1), ()), (v(1), v(2), ()), (v(2), v(2), ())],
+    )
+    .unwrap();
 
     assert_eq!(csr.count(), 5);
     for (input, (from, to)) in ids.iter().zip([(0, 1), (1, 2), (2, 2)]) {
@@ -63,7 +73,7 @@ fn builds_an_undirected_graph_with_twin_half_edges() {
 #[test]
 fn uses_separate_vertex_and_edge_index_types() {
     let (csr, ids) =
-        AdjCsr::<u16, u32>::directed(2, &[(VertexId::new(0), VertexId::new(1))]).unwrap();
+        AdjCsr::<(), u16, u32>::directed(2, &[(VertexId::new(0), VertexId::new(1), ())]).unwrap();
 
     let edge = csr.of(VertexId::new(0)).next().unwrap();
     assert_eq!((edge.to.id(), edge.key), (1, ids[0]));
@@ -71,7 +81,7 @@ fn uses_separate_vertex_and_edge_index_types() {
 
 #[test]
 fn has_no_edges_on_a_vertex_outside_the_graph() {
-    let (csr, _) = AdjCsr::<u32, u32>::directed(1, &[(v(0), v(0))]).unwrap();
+    let (csr, _) = AdjCsr::<(), u32, u32>::directed(1, &[(v(0), v(0), ())]).unwrap();
 
     assert_eq!(csr.of(v(1)).count(), 0);
     assert_eq!(csr.count_of(v(1)), 0);
@@ -80,8 +90,11 @@ fn has_no_edges_on_a_vertex_outside_the_graph() {
 
 #[test]
 fn lists_all_edges_in_edge_id_order() {
-    let (csr, _) =
-        AdjCsr::<u32, u32>::undirected(3, &[(v(2), v(0)), (v(1), v(0)), (v(1), v(1))]).unwrap();
+    let (csr, _) = AdjCsr::<(), u32, u32>::undirected(
+        3,
+        &[(v(2), v(0), ()), (v(1), v(0), ()), (v(1), v(1), ())],
+    )
+    .unwrap();
 
     let keys: Vec<_> = csr.all().map(|edge| edge.key.id()).collect();
     assert_eq!(keys, (0..csr.count()).collect::<Vec<_>>());
@@ -91,7 +104,7 @@ fn lists_all_edges_in_edge_id_order() {
 
 #[test]
 fn builds_an_empty_graph() {
-    let (csr, ids) = AdjCsr::<u32, u32>::directed(0, &[]).unwrap();
+    let (csr, ids) = AdjCsr::<(), u32, u32>::directed(0, &[]).unwrap();
 
     assert_eq!(csr.count(), 0);
     assert_eq!(csr.all().count(), 0);
@@ -100,7 +113,8 @@ fn builds_an_empty_graph() {
 
 #[test]
 fn runs_the_visits_on_a_graph_over_a_csr() {
-    let (csr, _) = AdjCsr::<u32, u32>::undirected(3, &[(v(0), v(1)), (v(1), v(2))]).unwrap();
+    let (csr, _) =
+        AdjCsr::<(), u32, u32>::undirected(3, &[(v(0), v(1), ()), (v(1), v(2), ())]).unwrap();
     let graph = Graph::new(vec!["a", "b", "c"], csr);
 
     assert_eq!(graph.len(), 3);
@@ -111,8 +125,11 @@ fn runs_the_visits_on_a_graph_over_a_csr() {
 
 #[test]
 fn runs_dijkstra_with_costs_indexed_by_edge_id() {
-    let (csr, ids) =
-        AdjCsr::<u32, u32>::directed(3, &[(v(0), v(1)), (v(1), v(2)), (v(0), v(2))]).unwrap();
+    let (csr, ids) = AdjCsr::<(), u32, u32>::directed(
+        3,
+        &[(v(0), v(1), ()), (v(1), v(2), ()), (v(0), v(2), ())],
+    )
+    .unwrap();
     let graph = Graph::new(vec!["a", "b", "c"], csr);
     let mut costs = vec![0.0; graph.edges().count()];
     for (id, cost) in ids.iter().zip([1.0, 1.0, 5.0]) {
@@ -125,7 +142,8 @@ fn runs_dijkstra_with_costs_indexed_by_edge_id() {
 
 #[test]
 fn filters_csr_edges_by_edge_id() {
-    let (csr, ids) = AdjCsr::<u32, u32>::undirected(3, &[(v(0), v(1)), (v(1), v(2))]).unwrap();
+    let (csr, ids) =
+        AdjCsr::<(), u32, u32>::undirected(3, &[(v(0), v(1), ()), (v(1), v(2), ())]).unwrap();
     let graph = Graph::new(vec!["a", "b", "c"], csr);
     let closed = graph.edges().twin(ids[1]).unwrap();
 
@@ -137,7 +155,8 @@ fn filters_csr_edges_by_edge_id() {
 #[test]
 fn builds_edges_on_the_highest_vertex_id() {
     let (csr, _) =
-        AdjCsr::<u8, u32>::directed(255, &[(VertexId::new(254), VertexId::new(0))]).unwrap();
+        AdjCsr::<(), u8, u32>::directed(255, &[(VertexId::new(254), VertexId::new(0), ())])
+            .unwrap();
 
     let edge = csr.of(VertexId::new(254)).next().unwrap();
     assert_eq!(edge.to.id(), 0);
@@ -145,28 +164,28 @@ fn builds_edges_on_the_highest_vertex_id() {
 
 #[test]
 fn rejects_a_vertex_count_above_the_vertex_id_range() {
-    assert_eq!(AdjCsr::<u8, u32>::directed(255, &[]).err(), None);
+    assert_eq!(AdjCsr::<(), u8, u32>::directed(255, &[]).err(), None);
     assert_eq!(
-        AdjCsr::<u8, u32>::directed(256, &[]).err(),
+        AdjCsr::<(), u8, u32>::directed(256, &[]).err(),
         Some(CsrError::TooManyVertices)
     );
 }
 
 #[test]
 fn counts_an_undirected_self_loop_as_one_half_edge() {
-    let edges = vec![(v(0), v(0)); 255];
+    let edges = vec![(v(0), v(0), ()); 255];
 
-    assert_eq!(AdjCsr::<u32, u8>::undirected(1, &edges).err(), None);
+    assert_eq!(AdjCsr::<(), u32, u8>::undirected(1, &edges).err(), None);
 }
 
 #[test]
 fn rejects_an_edge_count_above_the_edge_index_range() {
-    let edges = vec![(v(0), v(1)); 255];
-    assert_eq!(AdjCsr::<u32, u8>::directed(2, &edges).err(), None);
+    let edges = vec![(v(0), v(1), ()); 255];
+    assert_eq!(AdjCsr::<(), u32, u8>::directed(2, &edges).err(), None);
 
-    let edges = vec![(v(0), v(1)); 128];
+    let edges = vec![(v(0), v(1), ()); 128];
     assert_eq!(
-        AdjCsr::<u32, u8>::undirected(2, &edges).err(),
+        AdjCsr::<(), u32, u8>::undirected(2, &edges).err(),
         Some(CsrError::TooManyEdges)
     );
 }
@@ -174,7 +193,7 @@ fn rejects_an_edge_count_above_the_edge_index_range() {
 #[test]
 fn rejects_an_endpoint_outside_the_vertices() {
     assert_eq!(
-        AdjCsr::<u32, u32>::directed(2, &[(v(0), v(2))]).err(),
+        AdjCsr::<(), u32, u32>::directed(2, &[(v(0), v(2), ())]).err(),
         Some(CsrError::VertexOutOfRange)
     );
 }
@@ -182,8 +201,13 @@ fn rejects_an_endpoint_outside_the_vertices() {
 #[test]
 fn finds_bridges_and_articulation_points_on_an_undirected_csr() {
     // Triangle 0-1-2 with a tail 2-3: 2-3 is the only bridge, 2 the only cut vertex.
-    let edges = [(v(0), v(1)), (v(1), v(2)), (v(2), v(0)), (v(2), v(3))];
-    let (csr, _) = AdjCsr::<u32, u32>::undirected(4, &edges).unwrap();
+    let edges = [
+        (v(0), v(1), ()),
+        (v(1), v(2), ()),
+        (v(2), v(0), ()),
+        (v(2), v(3), ()),
+    ];
+    let (csr, _) = AdjCsr::<(), u32, u32>::undirected(4, &edges).unwrap();
     let graph = Graph::new(vec![(); 4], csr);
 
     let bridges = Bridges.visit(&graph);
@@ -195,12 +219,64 @@ fn finds_bridges_and_articulation_points_on_an_undirected_csr() {
 
 #[test]
 fn finds_strongly_connected_components_on_a_directed_csr() {
-    let edges = [(v(0), v(1)), (v(1), v(0)), (v(1), v(2))];
-    let (csr, _) = AdjCsr::<u32, u32>::directed(3, &edges).unwrap();
+    let edges = [(v(0), v(1), ()), (v(1), v(0), ()), (v(1), v(2), ())];
+    let (csr, _) = AdjCsr::<(), u32, u32>::directed(3, &edges).unwrap();
     let graph = Graph::new(vec![(); 3], csr);
 
     let mut components = StronglyConnectedComponents.visit(&graph);
     components.iter_mut().for_each(|component| component.sort());
     components.sort();
     assert_eq!(components, vec![vec![v(0), v(1)], vec![v(2)]]);
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+struct Km(f64);
+impl Weighted for Km {
+    fn weight(&self) -> f64 {
+        self.0
+    }
+}
+
+#[test]
+fn stores_edge_data_shared_by_twin_half_edges() {
+    let edges = [(v(0), v(1), Km(2.0)), (v(1), v(2), Km(3.0))];
+    let (csr, ids) = AdjCsr::<Km>::undirected(3, &edges).unwrap();
+
+    assert_eq!(csr.get(&v(1), &v(0)), Some(&Km(2.0)));
+    assert_eq!(csr.get(&v(1), &v(2)), Some(&Km(3.0)));
+    assert_eq!(csr.get(&v(0), &v(2)), None);
+    let twin = csr.twin(ids[1]).unwrap();
+    let edge = csr.all().find(|edge| edge.key == twin).unwrap();
+    assert_eq!((edge.from, edge.to, edge.data), (v(2), v(1), &Km(3.0)));
+}
+
+#[test]
+fn runs_the_weighted_visits_on_csr_edge_data() {
+    let edges = [
+        (v(0), v(1), Km(1.0)),
+        (v(1), v(2), Km(1.0)),
+        (v(0), v(2), Km(5.0)),
+    ];
+    let (csr, _) = AdjCsr::<Km>::undirected(3, &edges).unwrap();
+    let graph = Graph::new(vec![(); 3], csr);
+
+    assert_eq!(MinimumSpanningTree.visit(&graph).1, 2.0);
+}
+
+#[test]
+fn places_each_edge_data_on_its_own_edge_from_unsorted_input() {
+    let edges = [
+        (v(1), v(0), Km(1.0)),
+        (v(0), v(1), Km(2.0)),
+        (v(0), v(1), Km(3.0)),
+        (v(1), v(1), Km(4.0)),
+    ];
+    let (csr, ids) = AdjCsr::<Km>::directed(2, &edges).unwrap();
+
+    for (id, (from, to, data)) in ids.iter().zip(&edges) {
+        let edge = csr.all().find(|edge| edge.key == *id).unwrap();
+        assert_eq!((edge.from, edge.to, edge.data), (*from, *to, data));
+    }
+    assert_eq!(csr.get(&v(0), &v(1)), Some(&Km(2.0)));
 }
