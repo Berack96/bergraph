@@ -27,7 +27,8 @@ impl<I: UnsignedId> ShortestPathTree<I> {
     }
 }
 
-/// Shortest path from a start vertex to `target`: the vertex sequence and its total weight.
+/// Shortest path from a start vertex to `target`: the vertex sequence and its total weight; see
+/// [`visit_all`](Self::visit_all) for the paths to every vertex.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Dijkstra<I: UnsignedId> {
     target: VertexId<I>,
