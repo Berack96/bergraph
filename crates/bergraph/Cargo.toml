@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "A graph tool library for building memory efficient and fast graphs"
+readme = "../../README.md"
+documentation = "https://docs.rs/bergraph"
+keywords = ["graph", "csr", "dijkstra", "pathfinding", "algorithms"]
+categories = ["data-structures", "algorithms"]
 
 [dependencies]
 bergraph-derive = { workspace = true, optional = true }
