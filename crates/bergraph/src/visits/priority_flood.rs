@@ -56,12 +56,18 @@ impl PriorityFlood {
             });
         }
 
+        // Vertices flooded at the level being drained wait in a heap of their own: popping the
+        // lower top of the two gives the same order as one heap, with shorter sifts.
+        let mut drained = BinaryHeap::new();
         let mut order = Vec::new();
         while let Some(MinEntry {
             priority: level,
             vertex,
-        }) = heap.pop()
-        {
+        }) = match (heap.peek(), drained.peek()) {
+            (Some(raised), Some(lower)) if raised > lower => heap.pop(),
+            (_, Some(_)) => drained.pop(),
+            _ => heap.pop(),
+        } {
             let flooded = marks
                 .get(vertex)
                 .expect("queued vertices are always marked");
@@ -79,10 +85,15 @@ impl PriorityFlood {
                         from: Some(vertex),
                     }),
                 );
-                heap.push(MinEntry {
+                let entry = MinEntry {
                     priority: next_level,
                     vertex: edge.to,
-                });
+                };
+                if next_level == level {
+                    drained.push(entry);
+                } else {
+                    heap.push(entry);
+                }
             }
         }
 

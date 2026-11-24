@@ -1,9 +1,10 @@
 use bergraph::{
-    VertexId,
+    Graph, GraphBuilder, VertexId,
     graph_edges::{
         AdjCsr, AdjList, AdjListFixed, AdjMatrix, GraphEdgeStorage, GraphEdgeStorageDirectedMut,
         GraphEdgeStorageMut,
     },
+    graph_visit::{Dijkstra, MultiSourceDijkstra, PriorityFlood},
 };
 
 #[global_allocator]
@@ -109,6 +110,70 @@ fn matrix_build() -> AdjMatrix<(), u32> {
 fn matrix_iterate(bencher: divan::Bencher) {
     let storage = build_matrix();
     bencher.bench(|| divan::black_box(storage.all().count()));
+}
+
+/// Side of the periodic triangular lattice the visits run on.
+const LATTICE_SIDE: usize = 1024;
+
+/// Pseudo-random value in `[0, 1)` for `k`.
+fn noise(k: usize) -> f64 {
+    let mut h = (k as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    h ^= h >> 31;
+    h = h.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    (h >> 11) as f64 / (1u64 << 53) as f64
+}
+
+/// Periodic triangular lattice (six neighbors per vertex) and a weight per edge.
+fn build_lattice() -> (Graph<(), AdjCsr>, Vec<f64>) {
+    let n = LATTICE_SIDE;
+    let id = |x: usize, y: usize| VertexId::new((y % n) * n + x % n);
+    let edges: Vec<_> = (0..n * n)
+        .flat_map(|k| {
+            let (x, y) = (k % n, k / n);
+            [(1, 0), (0, 1), (1, 1)].map(|(dx, dy)| (id(x, y), id(x + dx, y + dy), ()))
+        })
+        .collect();
+    let (graph, _) = GraphBuilder::new()
+        .with_vertices(vec![(); n * n])
+        .build_csr_undirected(&edges)
+        .unwrap();
+    let weights = (0..2 * edges.len()).map(|e| 1.0 + noise(e)).collect();
+    (graph, weights)
+}
+
+#[divan::bench(sample_count = 20)]
+fn dijkstra_visit_all(bencher: divan::Bencher) {
+    let (graph, weights) = build_lattice();
+    bencher
+        .bench(|| Dijkstra::visit_all(&graph, VertexId::new(0), |e| weights[e.key.id()]).unwrap());
+}
+
+#[divan::bench(sample_count = 20)]
+fn multi_source_dijkstra(bencher: divan::Bencher) {
+    let (graph, weights) = build_lattice();
+    let sources: Vec<_> = (0..64)
+        .map(|k| VertexId::new(k * 4099 % (LATTICE_SIDE * LATTICE_SIDE)))
+        .collect();
+    bencher.bench(|| {
+        MultiSourceDijkstra::new(f64::INFINITY)
+            .visit(&graph, sources.iter().copied(), |e| weights[e.key.id()])
+            .unwrap()
+    });
+}
+
+#[divan::bench(sample_count = 20)]
+fn priority_flood(bencher: divan::Bencher) {
+    let (graph, _) = build_lattice();
+    let height: Vec<f64> = (0..LATTICE_SIDE * LATTICE_SIDE).map(noise).collect();
+    let seeds: Vec<_> = (0..height.len())
+        .filter(|&k| height[k] < 0.01)
+        .map(VertexId::new)
+        .collect();
+    bencher.bench(|| {
+        PriorityFlood
+            .visit(&graph, seeds.iter().copied(), |v| height[v.id()])
+            .unwrap()
+    });
 }
 
 fn main() {

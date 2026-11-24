@@ -1526,6 +1526,39 @@ fn priority_flood_never_refloods_a_seed_and_breaks_ties_on_the_lower_id() {
 }
 
 #[test]
+fn priority_flood_interleaves_raised_and_drained_vertices_by_id_on_one_level() {
+    let mut graph = GraphBuilder::<f64, ()>::new().build();
+    let a = graph.add_vertex(0.0);
+    let b = graph.add_vertex(1.0);
+    let d = graph.add_vertex(1.0);
+    let c = graph.add_vertex(0.5);
+    let e = graph.add_vertex(0.2);
+    let f = graph.add_vertex(1.0);
+    graph.edges_mut().add_edge(a, b, ());
+    graph.edges_mut().add_edge(a, d, ());
+    graph.edges_mut().add_edge(a, f, ());
+    graph.edges_mut().add_edge(b, c, ());
+    graph.edges_mut().add_edge(d, e, ());
+
+    let flooding = PriorityFlood
+        .visit(&graph, [a], |id| *graph.vertex(id).unwrap())
+        .unwrap();
+
+    let flooded = |level, from| Flooded { level, from };
+    assert_eq!(
+        flooding,
+        vec![
+            (a, flooded(0.0, None)),
+            (b, flooded(1.0, Some(a))),
+            (d, flooded(1.0, Some(a))),
+            (c, flooded(1.0, Some(b))),
+            (e, flooded(1.0, Some(d))),
+            (f, flooded(1.0, Some(a))),
+        ]
+    );
+}
+
+#[test]
 fn search_buffers_reused_across_searches_give_the_same_results() {
     let mut graph = GraphBuilder::<&str, Km>::new().build();
     let a = graph.add_vertex("a");
